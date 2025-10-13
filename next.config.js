@@ -24,11 +24,17 @@ const nextConfig = {
         hostname: "developers.google.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "i.pravatar.cc",
+        pathname: "/**",
+      },
     ],
     domains: [
       "res.cloudinary.com",
       "agenda-ai.ronnysenna.com.br",
       "developers.google.com",
+      "i.pravatar.cc",
     ],
   },
 

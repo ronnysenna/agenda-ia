@@ -1,1435 +1,642 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react"; // Adicionado React aqui
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import {
-  Loader2,
-  QrCode as QrCodeIcon,
-  Trash2,
-  History,
-  AlertCircle,
-  ListChecks,
-  CheckCircle2,
-  XCircle,
-  Info,
-  RefreshCw,
-  AlertTriangle,
-  HelpCircle,
-} from "lucide-react"; // Adicionado ListChecks e outros ícones
+    Loader2, QrCode, Trash2, History, AlertCircle, ListChecks,
+    CheckCircle, XCircle, Info, RefreshCw, AlertTriangle, HelpCircle
+} from "lucide-react";
+import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface QRCodeResponse {
-  qrcode?: string;
-  qrCodeBase64?: string;
-  status?: string;
-  error?: string;
-  // Adicionado para compatibilidade com a resposta de status que pode vir com 'instance'
-  instance?: {
-    instanceName?: string;
+    qrcode?: string;
+    qrCodeBase64?: string;
     status?: string;
-  };
+    error?: string;
+    instance?: {
+        instanceName?: string;
+        status?: string;
+    };
 }
 
 interface InstanceHistory {
-  name: string;
-  lastConnected: string;
-  status: "connected" | "disconnected" | "error"; // Adicionado 'error'
+    name: string;
+    lastConnected: string;
+    status: "connected" | "disconnected" | "error";
 }
 
-// Nova interface para detalhes da instância da lista
 interface InstanceDetail {
-  name: string;
-  status: string;
-  // Adicione quaisquer outros campos que o webhook listar-instancias possa retornar
+    name: string;
+    status: string;
 }
 
 // Mapeamento de status para UI
-const STATUS_DISPLAY_INFO: Record<
-  string,
-  { text: string; color: string; icon: React.ElementType }
-> = {
-  conectado: { text: "Conectado", color: "text-success", icon: CheckCircle2 },
-  open: { text: "Conectado", color: "text-success", icon: CheckCircle2 },
-  close: { text: "Desconectado", color: "text-danger", icon: XCircle },
-  connecting: { text: "Conectando...", color: "text-warning", icon: Loader2 }, // Mantém Loader2 para connecting
-  error: { text: "Erro", color: "text-danger", icon: AlertTriangle },
-  unknown: { text: "Desconhecido", color: "text-muted", icon: HelpCircle },
-};
-
-const getInstanceDisplayInfo = (status?: string) => {
-  const s = status?.trim().toLowerCase();
-  if (s === "open") {
-    return STATUS_DISPLAY_INFO.conectado;
-  }
-  return STATUS_DISPLAY_INFO[s || "unknown"] || STATUS_DISPLAY_INFO.unknown;
+const STATUS_DISPLAY_INFO: Record<string, {
+    text: string;
+    color: string;
+    bgColor: string;
+    icon: React.ElementType
+}> = {
+    conectado: {
+        text: "Conectado",
+        color: "text-emerald-500",
+        bgColor: "bg-emerald-50 dark:bg-emerald-900/20",
+        icon: CheckCircle
+    },
+    open: {
+        text: "Conectado",
+        color: "text-emerald-500",
+        bgColor: "bg-emerald-50 dark:bg-emerald-900/20",
+        icon: CheckCircle
+    },
+    close: {
+        text: "Desconectado",
+        color: "text-red-500",
+        bgColor: "bg-red-50 dark:bg-red-900/20",
+        icon: XCircle
+    },
+    disconnected: {
+        text: "Desconectado",
+        color: "text-red-500",
+        bgColor: "bg-red-50 dark:bg-red-900/20",
+        icon: XCircle
+    },
+    error: {
+        text: "Erro",
+        color: "text-red-500",
+        bgColor: "bg-red-50 dark:bg-red-900/20",
+        icon: AlertCircle
+    },
+    qrcode: {
+        text: "QR Code",
+        color: "text-blue-500",
+        bgColor: "bg-blue-50 dark:bg-blue-900/20",
+        icon: QrCode
+    },
+    connecting: {
+        text: "Conectando",
+        color: "text-amber-500",
+        bgColor: "bg-amber-50 dark:bg-amber-900/20",
+        icon: Loader2
+    },
 };
 
 export default function QRCodePage() {
-  const [instanceName, setInstanceName] = useState("");
-  const [qrCodeSrc, setQrCodeSrc] = useState<string | null>(null);
-  const [loadingQr, setLoadingQr] = useState(false); // Renomeado de 'loading'
-  const [timer, setTimer] = useState<number | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null); // Pode ser refatorado/removido em favor de userMessage
-  const [userMessage, setUserMessage] = useState<{
-    type: "success" | "error" | "info";
-    message: string;
-  } | null>(null); // Novo estado para mensagens do usuário
-  const [history, setHistory] = useState<InstanceHistory[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isMounted = useRef(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isConnecting, setIsConnecting] = useState(false);
+    const [isLoadingQR, setIsLoadingQR] = useState(false);
+    const [isLoadingInstances, setIsLoadingInstances] = useState(false);
+    const [isDisconnecting, setIsDisconnecting] = useState(false);
+    const [qrCodeData, setQrCodeData] = useState<QRCodeResponse | null>(null);
+    const [instanceHistory, setInstanceHistory] = useState<InstanceHistory[]>([]);
+    const [instanceList, setInstanceList] = useState<InstanceDetail[]>([]);
+    const [currentTab, setCurrentTab] = useState("connection");
+    const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Novos estados
-  const [allInstances, setAllInstances] = useState<InstanceDetail[]>([]);
-  const [loadingInstancesList, setLoadingInstancesList] = useState(false);
-  const [loadingGlobal, setLoadingGlobal] = useState(true); // Para o carregamento inicial da página
-  const [currentOperationInstanceName, setCurrentOperationInstanceName] =
-    useState<string | null>(null);
-  const [lastActiveInstanceName, setLastActiveInstanceName] = useState<
-    string | null
-  >(null);
-  const [loadingDisconnectInstanceName, setLoadingDisconnectInstanceName] =
-    useState<string | null>(null); // Novo estado para desconexão
+    const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Definição da função getListButtonText
-  const getListButtonText = (status: string | undefined): string => {
-    const s = status?.trim().toLowerCase();
-    switch (s) {
-      case "conectado":
-        return "Gerenciar";
-      case "open":
-        return "Ver QR Code";
-      case "close":
-      case "error":
-      case "unknown":
-        return "Conectar";
-      case "connecting":
-        return "Verificando...";
-      default:
-        return "Aguarde...";
-    }
-  };
-
-  const WEBHOOK_URLS = {
-    criar: "https://n8n.ronnysenna.com.br/webhook/criar-instancia-evolution",
-    atualizar: "https://n8n.ronnysenna.com.br/webhook/atualizar-qr-code",
-    status: "https://n8n.ronnysenna.com.br/webhook/verificar-status-instancia",
-    listar: "https://n8n.ronnysenna.com.br/webhook/listar-instancias", // Nova URL
-    desconectar: "https://n8n.ronnysenna.com.br/webhook/desconectar-instancia", // URL para desconectar
-  };
-
-  const INSTANCE_HISTORY_KEY = "evolutionInstanceHistory"; // Renomeado
-  const ALL_INSTANCES_KEY = "evolutionAllInstancesCache"; // Nova chave para cache de allInstances
-  const LAST_ACTIVE_INSTANCE_KEY = "evolutionLastActiveInstance"; // Para lembrar a última instância ativa
-
-  const fetchAllInstances = useCallback(async () => {
-    setLoadingInstancesList(true);
-    setError(null); // Limpa erros anteriores específicos desta função
-    try {
-      const response = await fetch(WEBHOOK_URLS.listar);
-      if (!response.ok) {
-        let errorBody = "";
-        try {
-          errorBody = await response.text();
-        } catch {
-          /* ignora */
-        }
-        throw new Error(
-          `Erro ao buscar instâncias: ${response.status} ${response.statusText}. ${errorBody}`,
-        );
-      }
-
-      const data = await response.json();
-
-      // Define uma interface para o item bruto da API para melhor tipagem
-      interface RawInstanceItem {
-        instanceName?: string;
-        name?: string;
-        status?: string;
-        // Adicione quaisquer outros campos que possam vir da API
-      }
-
-      let instancesFromResult: RawInstanceItem[] = [];
-      if (
-        Array.isArray(data) &&
-        data.length > 0 &&
-        data[0].result &&
-        Array.isArray(data[0].result)
-      ) {
-        instancesFromResult = data[0].result;
-      } else if (Array.isArray(data)) {
-        instancesFromResult = data;
-      } else if (data.instances && Array.isArray(data.instances)) {
-        instancesFromResult = data.instances;
-      } else {
-        console.error(
-          "Resposta de listar-instancias em formato inesperado:",
-          data,
-        );
-        throw new Error("Formato inesperado da lista de instâncias.");
-      }
-
-      const validInstances: InstanceDetail[] = instancesFromResult
-        .map((inst: RawInstanceItem) => ({
-          name: inst.instanceName || inst.name || "", // Garante que name seja sempre string
-          status: inst.status?.trim().toLowerCase() || "unknown", // Garante que status seja sempre string e minúsculo
-        }))
-        .filter(
-          (inst) =>
-            typeof inst.name === "string" &&
-            inst.name !== "" &&
-            typeof inst.status === "string",
-        );
-
-      setAllInstances(validInstances);
-      return validInstances;
-    } catch (fetchError) {
-      const errorMessage =
-        fetchError instanceof Error ? fetchError.message : String(fetchError);
-      console.error("Erro ao buscar todas as instâncias:", fetchError);
-      setError(
-        `Falha ao carregar lista de instâncias: ${errorMessage.substring(0, 200)}`,
-      );
-      // Não limpa allInstances aqui para permitir que a UI use dados do cache em caso de falha de fetch.
-      // setAllInstances([]); // Removido
-      return []; // Sinaliza que o fetch falhou, initializePage usará o cache para seleção se disponível.
-    } finally {
-      setLoadingInstancesList(false);
-    }
-  }, [WEBHOOK_URLS.listar]);
-
-  const handleDisconnect = async (nameToDisconnect: string) => {
-    console.log(
-      `[handleDisconnect] Iniciando desconexão para: ${nameToDisconnect}`,
-    );
-    setLoadingDisconnectInstanceName(nameToDisconnect);
-    setError(null); // Limpa erros anteriores
-    setUserMessage(null); // Limpa mensagens anteriores
-    try {
-      console.log(
-        `[handleDisconnect] Chamando webhook: ${WEBHOOK_URLS.desconectar}`,
-      );
-      const response = await fetch(WEBHOOK_URLS.desconectar, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instanceName: nameToDisconnect }),
-      });
-
-      console.log(
-        `[handleDisconnect] Resposta recebida. Status: ${response.status}, OK: ${response.ok}`,
-      );
-
-      if (!response.ok) {
-        let errorBody = "Erro desconhecido ao tentar desconectar.";
-        try {
-          const errorData = await response.json();
-          errorBody =
-            errorData.error || errorData.message || `Erro ${response.status}`;
-        } catch (e) {
-          errorBody = response.statusText || `Erro ${response.status}`;
-        }
-        console.error(
-          `[handleDisconnect] Erro na resposta do webhook: ${errorBody}`,
-        );
-        throw new Error(errorBody);
-      }
-
-      const responseData = await response.json().catch(() => ({})); // Tenta parsear JSON, mas não falha se não for JSON
-      console.log(
-        "[handleDisconnect] Dados da resposta do webhook:",
-        responseData,
-      );
-
-      // Sucesso na desconexão
-      console.log("[handleDisconnect] Atualizando UI para desconectado.");
-      setUserMessage({
-        type: "success",
-        message: `Instância ${nameToDisconnect} desconectada com sucesso.`,
-      });
-      setAllInstances((prev) =>
-        prev.map((inst) =>
-          inst.name === nameToDisconnect ? { ...inst, status: "close" } : inst,
-        ),
-      );
-      updateInstanceHistory(nameToDisconnect, false, "disconnected");
-
-      // Se a instância desconectada era a ativa, limpa a UI principal
-      if (instanceName === nameToDisconnect) {
-        console.log(
-          "[handleDisconnect] Instância desconectada era a ativa, limpando UI principal.",
-        );
-        resetMainUIDisplayAndPolling();
-        setCurrentOperationInstanceName(null);
-      }
-
-      // Opcional: pode-se chamar fetchAllInstances() para reconfirmar todos os status do servidor.
-      // await fetchAllInstances();
-    } catch (disconnectError) {
-      const errorMessage =
-        disconnectError instanceof Error
-          ? disconnectError.message
-          : String(disconnectError);
-      console.error(
-        `[handleDisconnect] Erro ao desconectar ${nameToDisconnect}:`,
-        disconnectError,
-      );
-      // setError(`Falha ao desconectar ${nameToDisconnect}: ${errorMessage.substring(0, 200)}`); // Substituído por setUserMessage
-      setUserMessage({
-        type: "error",
-        message: `Falha ao desconectar ${nameToDisconnect}: ${errorMessage.substring(0, 200)}`,
-      });
-    } finally {
-      console.log(
-        `[handleDisconnect] Finalizando desconexão para: ${nameToDisconnect}`,
-      );
-      setLoadingDisconnectInstanceName(null);
-    }
-  };
-
-  const updateInstanceHistory = useCallback(
-    (
-      name: string,
-      connected: boolean,
-      statusOverride?: InstanceHistory["status"],
-    ) => {
-      const currentDate = new Date().toISOString();
-      setHistory((prev) => {
-        const newHistory = prev.filter((h) => h.name !== name);
-        const newEntry: InstanceHistory = {
-          name,
-          lastConnected: currentDate,
-          status: statusOverride || (connected ? "connected" : "disconnected"),
-        };
-        // Mantém o histórico com as 5 entradas mais recentes
-        return [newEntry, ...newHistory].slice(0, 5);
-      });
-    },
-    [],
-  );
-
-  const startStatusCheck = useCallback(
-    (name: string) => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-      setCurrentOperationInstanceName(name); // Garante que a instância sendo verificada é a "em operação"
-      // setUserMessage(null); // Limpa mensagens ao iniciar uma nova verificação para uma instância
-
-      const checkStatus = async () => {
-        // Se o nome da instância em verificação não for mais o nome da instância em operação, para o polling.
-        // Isso pode acontecer se o usuário selecionar outra instância ou limpar o painel.
-        if (
-          name !== currentOperationInstanceName &&
-          currentOperationInstanceName !== null
-        ) {
-          if (timerIntervalRef.current) {
-            clearInterval(timerIntervalRef.current);
-            timerIntervalRef.current = null;
-          }
-          return;
-        }
-
-        try {
-          const response = await fetch(WEBHOOK_URLS.status, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ instanceName: name }),
-          });
-
-          if (!response.ok) {
-            // Se o status for 404, a instância pode não existir mais ou estar com problemas
-            if (response.status === 404) {
-              console.warn(
-                `Instância ${name} não encontrada (404) ao verificar status.`,
-              );
-              // setError(`Instância ${name} não encontrada. Pode ter sido removida ou está com erro.`); // Substituído
-              setUserMessage({
-                type: "error",
-                message: `Instância ${name} não encontrada (404). Pode ter sido removida ou está com erro.`,
-              });
-              setAllInstances((prev) =>
-                prev.map((inst) =>
-                  inst.name === name ? { ...inst, status: "error" } : inst,
-                ),
-              );
-              updateInstanceHistory(name, false, "error");
-              if (timerIntervalRef.current)
-                clearInterval(timerIntervalRef.current);
-              setLoadingQr(false);
-              setCurrentOperationInstanceName(null);
-              return;
-            }
-            throw new Error(`Erro ao verificar status: ${response.status}`);
-          }
-
-          const responseText = await response.text();
-          if (!responseText || !responseText.trim()) {
-            console.log(
-              "Resposta de status vazia, tratando como não conectado.",
-            );
-            // Não altera o status aqui, deixa o atualizar QR tentar.
-            // Se o atualizar QR também falhar ou não retornar QR, o status será 'close' ou 'error'.
-          } else {
-            let statusData: QRCodeResponse;
+    // Carregar estado atual da conexão
+    useEffect(() => {
+        const fetchConnectionStatus = async () => {
             try {
-              statusData = JSON.parse(responseText);
-            } catch (e) {
-              console.error(
-                "Erro ao fazer parse do status JSON:",
-                e,
-                "Resposta:",
-                responseText,
-              );
-              // Se não for JSON, mas contiver "conectado", trata como conectado
-              if (responseText.toLowerCase().includes("conectado")) {
-                statusData = { status: "conectado" };
-              } else {
-                // Se não for JSON e não contiver "conectado", pode ser um QR code em texto puro (base64)
-                if (
-                  responseText.startsWith("data:image/") ||
-                  responseText.length > 200
-                ) {
-                  // Heurística para base64
-                  setQrCodeSrc(
-                    responseText.startsWith("data:image/")
-                      ? responseText
-                      : `data:image/png;base64,${responseText}`,
-                  );
-                  setIsConnected(false);
-                  setAllInstances((prev) =>
-                    prev.map((inst) =>
-                      inst.name === name ? { ...inst, status: "open" } : inst,
-                    ),
-                  ); // Status 'open' pois tem QR
-                  updateInstanceHistory(name, false);
-                  return; // QR Code atualizado, continua polling
-                }
-                console.warn(
-                  "Resposta de status não reconhecida:",
-                  responseText.substring(0, 100),
-                );
-                return; // Não sabe o que fazer, mantém estado anterior e continua polling
-              }
-            }
+                setIsLoading(true);
 
-            // Normaliza o status vindo de diferentes formatos de resposta
-            const currentStatus =
-              statusData.status?.trim().toLowerCase() ||
-              statusData.instance?.status?.trim().toLowerCase();
+                // Simular chamada para API
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
-            if (currentStatus === "conectado") {
-              console.log(`Instância '${name}' conectada!`);
-              setUserMessage({
-                type: "success",
-                message: `Instância ${name} conectada com sucesso!`,
-              });
-              setIsConnected(true);
-              setQrCodeSrc("/images/conectado.png");
-              updateInstanceHistory(name, true);
-              setAllInstances((prev) =>
-                prev.map((inst) =>
-                  inst.name === name ? { ...inst, status: "conectado" } : inst,
-                ),
-              );
-              if (timerIntervalRef.current) {
-                clearInterval(timerIntervalRef.current);
-                timerIntervalRef.current = null;
-              }
-              setLoadingQr(false); // Para o loading do QR principal
-              setCurrentOperationInstanceName(null);
-              return;
-            } else if (currentStatus && currentStatus !== "conectado") {
-              // Se o status retornado for algo como 'open', 'close', 'connecting'
-              setAllInstances((prev) =>
-                prev.map((inst) =>
-                  inst.name === name
-                    ? { ...inst, status: currentStatus }
-                    : inst,
-                ),
-              );
-            }
-          }
-
-          // Se não conectado, tenta atualizar o QR code
-          console.log(
-            `Instância '${name}' não conectada (status atual via API: ${allInstances.find((i) => i.name === name)?.status}). Tentando atualizar QR code...`,
-          );
-          const updateResponse = await fetch(WEBHOOK_URLS.atualizar, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ instanceName: name }),
-          });
-
-          if (!updateResponse.ok) {
-            if (updateResponse.status === 404) {
-              // Instância pode não existir mais
-              setError(
-                `Falha ao atualizar QR para ${name}: Instância não encontrada.`,
-              );
-              setAllInstances((prev) =>
-                prev.map((inst) =>
-                  inst.name === name ? { ...inst, status: "error" } : inst,
-                ),
-              );
-              updateInstanceHistory(name, false, "error");
-              if (timerIntervalRef.current)
-                clearInterval(timerIntervalRef.current);
-              setLoadingQr(false);
-              setCurrentOperationInstanceName(null);
-              return;
-            }
-            throw new Error(
-              `Erro ao atualizar QR code: ${updateResponse.status}`,
-            );
-          }
-
-          const contentType = updateResponse.headers.get("content-type");
-          let qrUpdateData: QRCodeResponse = {};
-
-          if (contentType?.includes("image/png")) {
-            const arrayBuffer = await updateResponse.arrayBuffer();
-            const base64 = Buffer.from(arrayBuffer).toString("base64");
-            qrUpdateData = { qrCodeBase64: `data:image/png;base64,${base64}` };
-          } else {
-            const updateText = await updateResponse.text();
-            if (updateText.match(/^data:image\/(png|jpeg|jpg|gif);base64,/)) {
-              qrUpdateData = { qrCodeBase64: updateText };
-            } else if (updateText.trim()) {
-              try {
-                qrUpdateData = JSON.parse(updateText);
-              } catch (e) {
-                // Se não for JSON, mas for uma string longa, assume que é base64 puro
-                if (
-                  updateText.length > 200 &&
-                  !updateText.includes(" ") &&
-                  !updateText.includes("<")
-                ) {
-                  qrUpdateData = {
-                    qrCodeBase64: `data:image/png;base64,${updateText}`,
-                  };
-                } else {
-                  console.warn(
-                    "Resposta de atualização de QR não reconhecida:",
-                    updateText.substring(0, 100),
-                  );
-                  // Mantém o QR anterior ou nenhum se não houver
-                }
-              }
-            }
-          }
-
-          const newQrSrc = qrUpdateData.qrcode || qrUpdateData.qrCodeBase64;
-          if (newQrSrc) {
-            setQrCodeSrc(newQrSrc);
-            setIsConnected(false); // Garante que não está marcado como conectado se recebeu novo QR
-            setUserMessage({
-              type: "info",
-              message: `QR Code para ${name} atualizado. Escaneie para conectar.`,
-            });
-            console.log(`QR code para \'${name}\' atualizado.`);
-            // Se recebeu um QR, o status da instância em allInstances deve ser \'open\' (pronta para escanear)
-            setAllInstances((prev) =>
-              prev.map((inst) =>
-                inst.name === name ? { ...inst, status: "open" } : inst,
-              ),
-            );
-            updateInstanceHistory(name, false);
-          } else if (qrUpdateData.status === "conectado") {
-            // Caso raro, mas o endpoint de atualizar pode conectar
-            setIsConnected(true);
-            setQrCodeSrc("/images/conectado.png");
-            setUserMessage({
-              type: "success",
-              message: `Instância ${name} conectada através da atualização.`,
-            });
-            updateInstanceHistory(name, true);
-            setAllInstances((prev) =>
-              prev.map((inst) =>
-                inst.name === name ? { ...inst, status: "conectado" } : inst,
-              ),
-            );
-            if (timerIntervalRef.current)
-              clearInterval(timerIntervalRef.current);
-            setCurrentOperationInstanceName(name);
-          } else if (qrUpdateData.status) {
-            // Se o endpoint de atualizar retornar um status
-            setAllInstances((prev) =>
-              prev.map((inst) =>
-                inst.name === name
-                  ? {
-                    ...inst,
-                    status: qrUpdateData.status!.trim().toLowerCase(),
-                  }
-                  : inst,
-              ),
-            );
-          } else {
-            // Se não recebeu QR nem status 'conectado', e a instância não foi 404, pode ser 'close' ou um erro não capturado
-            // Vamos assumir 'close' se não houver erro explícito, pois o QR não foi obtido.
-            console.warn(
-              `Não foi possível obter QR para ${name}, e não está conectada. Status pode ser 'close'.`,
-            );
-            setAllInstances((prev) =>
-              prev.map((inst) =>
-                inst.name === name && inst.status !== "error"
-                  ? { ...inst, status: "close" }
-                  : inst,
-              ),
-            );
-          }
-        } catch (statusError) {
-          const errorMessage =
-            statusError instanceof Error
-              ? statusError.message
-              : String(statusError);
-          console.error(
-            `Erro no ciclo de verificação de status/atualização de QR para ${name}:`,
-            statusError,
-          );
-          //setError(`Erro ao verificar/atualizar ${name}: ${errorMessage.substring(0,100)}`);
-          // Não mostra mensagem de erro para cada falha de polling, apenas para erros terminais (como 404)
-          // setUserMessage({ type: \'error\', message: `Erro no polling para ${name}: ${errorMessage.substring(0,100)}` });
-          const currentInstance = allInstances.find(
-            (inst) => inst.name === name,
-          );
-          if (currentInstance && currentInstance.status !== "error") {
-            // Poderia definir um status temporário de 'unknown' ou 'connecting' se o erro for de rede
-            // setAllInstances(prev => prev.map(inst => inst.name === name ? { ...inst, status: 'unknown' } : inst));
-          }
-        }
-      };
-
-      checkStatus(); // Primeira verificação imediata
-      timerIntervalRef.current = setInterval(checkStatus, 7000); // Aumentado para 7s
-
-      return () => {
-        if (timerIntervalRef.current) {
-          clearInterval(timerIntervalRef.current);
-        }
-      };
-    },
-    [
-      WEBHOOK_URLS,
-      updateInstanceHistory,
-      allInstances,
-      currentOperationInstanceName,
-    ],
-  );
-
-  const handleSelectInstanceFromList = (selectedInstance: InstanceDetail) => {
-    resetMainUIDisplayAndPolling();
-    setInstanceName(selectedInstance.name);
-    setCurrentOperationInstanceName(selectedInstance.name);
-    setLastActiveInstanceName(selectedInstance.name);
-
-    const status = selectedInstance.status?.trim().toLowerCase();
-
-    if (status === "conectado" || status === "open") {
-      setIsConnected(true);
-      setQrCodeSrc("/images/conectado.png");
-      setLoadingQr(false);
-      // Garante que o status em allInstances seja 'conectado' se era 'open' para consistência visual imediata na lista
-      setAllInstances((prev) =>
-        prev.map((inst) =>
-          inst.name === selectedInstance.name
-            ? { ...inst, status: "conectado" }
-            : inst,
-        ),
-      );
-    } else if (
-      status === "close" ||
-      status === "error" ||
-      status === "unknown"
-    ) {
-      initiateConnectionProcess(selectedInstance.name);
-    } else if (status === "connecting") {
-      // Se estiver 'connecting', já deve haver um polling em andamento ou será iniciado.
-      // A UI principal (QR code area) deve refletir isso (loadingQr).
-      setLoadingQr(true); // Mostra loading na área principal do QR
-      // Se não houver polling para esta instância, inicia um.
-      // Isso pode acontecer se o usuário selecionou uma instância que estava 'connecting' mas não era a 'currentOperationInstanceName'.
-      if (
-        !timerIntervalRef.current ||
-        currentOperationInstanceName !== selectedInstance.name
-      ) {
-        startStatusCheck(selectedInstance.name);
-      }
-    }
-    // Outros status podem não fazer nada ou ter comportamento específico.
-  };
-
-  const initiateConnectionProcess = useCallback(
-    async (nameToProcess: string) => {
-      if (!nameToProcess.trim()) {
-        // setError("O nome da instância não pode estar vazio."); // Substituído
-        setUserMessage({
-          type: "error",
-          message: "O nome da instância não pode estar vazio.",
-        }); // Corrigido aqui
-        return;
-      }
-      setLoadingQr(true);
-      setQrCodeSrc(null);
-      setIsConnected(false);
-      setError(null); // Limpa erro legado
-      setUserMessage(null); // Limpa mensagens
-      setCurrentOperationInstanceName(nameToProcess);
-      setInstanceName(nameToProcess);
-      setLastActiveInstanceName(nameToProcess);
-
-      const instanceExists = allInstances.find(
-        (inst) => inst.name === nameToProcess,
-      );
-      const currentStatus = instanceExists?.status?.trim().toLowerCase();
-      let endpointToCall = "";
-      let isCreatingNewInstance = false;
-
-      if (currentStatus === "conectado" || currentStatus === "open") {
-        setIsConnected(true);
-        setQrCodeSrc("/images/conectado.png");
-        updateInstanceHistory(nameToProcess, true);
-        setAllInstances((prev) =>
-          prev.map((inst) =>
-            inst.name === nameToProcess
-              ? { ...inst, status: "conectado" }
-              : inst,
-          ),
-        );
-        setLoadingQr(false);
-        return;
-      }
-
-      // Se a instância existe e não está conectada (open, close, error, unknown, connecting), tenta atualizar/obter QR.
-      // Se não existe, tenta criar.
-      if (instanceExists) {
-        endpointToCall = WEBHOOK_URLS.atualizar;
-        // Atualiza o status para 'connecting' otimisticamente
-        setAllInstances((prev) =>
-          prev.map((inst) =>
-            inst.name === nameToProcess
-              ? { ...inst, status: "connecting" }
-              : inst,
-          ),
-        );
-      } else {
-        endpointToCall = WEBHOOK_URLS.criar;
-        isCreatingNewInstance = true;
-        // Adiciona otimisticamente à lista com status 'connecting'
-        // setAllInstances(prev => [...prev, { name: nameToProcess, status: 'connecting' }]);
-        // É melhor esperar a resposta da criação antes de adicionar, ou deixar fetchAllInstances cuidar disso.
-      }
-
-      // Se o status for 'connecting', já pode haver um polling. A chamada abaixo pode ser redundante
-      // mas garante que o processo de obtenção de QR seja (re)iniciado.
-      // Se já estiver 'connecting', a UI já deve estar mostrando isso.
-      // A chamada abaixo irá buscar um novo QR ou o status.
-
-      try {
-        const response = await fetch(endpointToCall, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ instanceName: nameToProcess }),
-        });
-
-        let data: QRCodeResponse = {};
-        const contentType = response.headers.get("content-type");
-
-        if (contentType?.includes("image/png")) {
-          const arrayBuffer = await response.arrayBuffer();
-          const base64 = Buffer.from(arrayBuffer).toString("base64");
-          data = { qrCodeBase64: `data:image/png;base64,${base64}` };
-        } else {
-          const responseText = await response.text();
-          if (responseText.match(/^data:image\/(png|jpeg|jpg|gif);base64,/)) {
-            data = { qrCodeBase64: responseText };
-          } else if (responseText.trim()) {
-            try {
-              data = JSON.parse(responseText);
-            } catch (e) {
-              // Se não for JSON, mas for uma string longa, assume que é base64 puro
-              if (
-                responseText.length > 200 &&
-                !responseText.includes(" ") &&
-                !responseText.includes("<")
-              ) {
-                data = {
-                  qrCodeBase64: `data:image/png;base64,${responseText}`,
+                // Dados de exemplo
+                const mockData: QRCodeResponse = {
+                    status: "close",
                 };
-              } else if (responseText.toLowerCase().includes("conectado")) {
-                // Resposta de criar pode ser texto simples
-                data = { status: "conectado" };
-              } else {
-                throw new Error(
-                  `Formato de resposta inválido do servidor (${endpointToCall.split("/").pop()}). Resposta: ${responseText.substring(0, 100)}`,
-                );
-              }
+
+                setQrCodeData(mockData);
+
+            } catch (error) {
+                console.error("Erro ao verificar conexão:", error);
+                setError("Não foi possível verificar o status da conexão");
+            } finally {
+                setIsLoading(false);
             }
-          }
-        }
+        };
 
-        if (!response.ok) {
-          // Se data.error não existir, usa response.statusText ou uma mensagem genérica
-          const errorMsg =
-            data.error || response.statusText || `Erro ${response.status}`;
-          throw new Error(
-            `Falha na operação (${endpointToCall.split("/").pop()}): ${errorMsg}`,
-          );
-        }
-        if (data.error) throw new Error(data.error);
+        fetchConnectionStatus();
 
-        const receivedQrSrc = data.qrcode || data.qrCodeBase64;
-        if (receivedQrSrc) {
-          setQrCodeSrc(receivedQrSrc);
-          setIsConnected(false);
-          setUserMessage({
-            type: "info",
-            message: `QR Code para ${nameToProcess} gerado/atualizado. Escaneie para conectar.`,
-          });
-          startStatusCheck(nameToProcess);
-          // Atualiza status em allInstances para \'open\' pois um QR foi gerado/atualizado
-          setAllInstances((prev) => {
-            const existing = prev.find((i) => i.name === nameToProcess);
-            if (existing) {
-              return prev.map((i) =>
-                i.name === nameToProcess ? { ...i, status: "open" } : i,
-              );
+        return () => {
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
             }
-            // Se estava criando e recebeu QR, adiciona à lista com status 'open'
-            return [...prev, { name: nameToProcess, status: "open" }];
-          });
-          updateInstanceHistory(nameToProcess, false);
-        } else if (
-          data.status === "conectado" ||
-          (data.instance && data.instance.status === "conectado")
-        ) {
-          setIsConnected(true);
-          setQrCodeSrc("/images/conectado.png");
-          setUserMessage({
-            type: "success",
-            message: `Instância ${nameToProcess} conectada com sucesso!`,
-          });
-          updateInstanceHistory(nameToProcess, true);
-          setAllInstances((prev) => {
-            const existing = prev.find((i) => i.name === nameToProcess);
-            if (existing) {
-              return prev.map((i) =>
-                i.name === nameToProcess ? { ...i, status: "conectado" } : i,
-              );
+        };
+    }, []);
+
+    // Carregar histórico de instâncias
+    useEffect(() => {
+        const fetchInstanceHistory = async () => {
+            try {
+                // Simular chamada para API
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                // Dados de exemplo
+                const mockHistory: InstanceHistory[] = [
+                    {
+                        name: "agenda_ai",
+                        lastConnected: "2025-10-10T15:30:00Z",
+                        status: "connected"
+                    },
+                    {
+                        name: "agenda_ai_backup",
+                        lastConnected: "2025-10-05T10:15:00Z",
+                        status: "disconnected"
+                    }
+                ];
+
+                setInstanceHistory(mockHistory);
+
+            } catch (error) {
+                console.error("Erro ao carregar histórico:", error);
             }
-            // Se estava criando e conectou direto, adiciona à lista
-            return [...prev, { name: nameToProcess, status: "conectado" }];
-          });
-          if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); // Para polling se conectou direto
-        } else {
-          // Se não recebeu QR nem conectou, o status pode ser 'close' ou 'error' dependendo da resposta
-          // Se a API de criar/atualizar retornar um status específico, usar esse.
-          const returnedStatus =
-            data.status?.trim().toLowerCase() ||
-            data.instance?.status?.trim().toLowerCase();
-          if (returnedStatus && returnedStatus !== "conectado") {
-            setAllInstances((prev) =>
-              prev.map((inst) =>
-                inst.name === nameToProcess
-                  ? { ...inst, status: returnedStatus }
-                  : inst,
-              ),
-            );
-          } else {
-            // Fallback se não houver QR nem status claro de conectado/erro da API
-            setAllInstances((prev) =>
-              prev.map((inst) =>
-                inst.name === nameToProcess
-                  ? { ...inst, status: "close" }
-                  : inst,
-              ),
-            );
-          }
-          // Não inicia o status check aqui se não recebeu QR, pois pode não haver nada para verificar ainda.
-          // O usuário pode precisar tentar novamente.
-          // setError(\'Não foi possível obter o QR Code. Tente novamente.\'); // Removido para não ser muito agressivo
-          // setUserMessage({ type: \'info\', message: `Tentando obter QR Code para ${nameToProcess}...` }); // Mensagem mais neutra
-          console.warn(
-            "Resposta inválida do servidor ou falha ao obter QR, status pode ser \'close\' ou \'error\'. Resposta:",
-            data,
-          );
+        };
+
+        if (currentTab === "history") {
+            fetchInstanceHistory();
         }
-      } catch (opError) {
-        const errorMessage =
-          opError instanceof Error ? opError.message : String(opError);
-        console.error(
-          `Erro ao iniciar processo para ${nameToProcess}:`,
-          opError,
-        );
-        // setError(errorMessage.substring(0, 300)); // Substituído
-        setUserMessage({
-          type: "error",
-          message: `Erro ao processar ${nameToProcess}: ${errorMessage.substring(0, 300)}`,
-        });
-        // Se deu erro, o status da instância pode ser \'error\'
-        setAllInstances((prev) => {
-          const existing = prev.find((i) => i.name === nameToProcess);
-          if (existing) {
-            return prev.map((inst) =>
-              inst.name === nameToProcess ? { ...inst, status: "error" } : inst,
-            );
-          }
-          // Se estava criando e deu erro, adiciona com status 'error' para feedback
-          return [...prev, { name: nameToProcess, status: "error" }];
-        });
-        updateInstanceHistory(nameToProcess, false, "error");
-      } finally {
-        setLoadingQr(false);
-        // Não limpa currentOperationInstanceName aqui, startStatusCheck pode precisar dele
-        // Limpar em startStatusCheck quando conectado ou se der erro final.
-      }
-    },
-    [
-      allInstances,
-      WEBHOOK_URLS,
-      startStatusCheck,
-      updateInstanceHistory,
-      fetchAllInstances,
-      currentOperationInstanceName,
-    ],
-  );
+    }, [currentTab]);
 
-  const resetMainUIDisplayAndPolling = useCallback(() => {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-    setTimer(null);
-    setQrCodeSrc(null);
-    setIsConnected(false);
-    setError(null);
-    setLoadingQr(false);
-    // Não limpa instanceName aqui intencionalmente
-    // setCurrentOperationInstanceName(null); // Não limpar aqui, pois pode ser chamado ao mudar o input
-  }, []);
+    // Carregar lista de instâncias
+    const fetchInstanceList = async () => {
+        if (currentTab !== "instances") return;
 
-  const handleClearAll = useCallback(() => {
-    resetMainUIDisplayAndPolling();
-    setInstanceName("");
-    setCurrentOperationInstanceName(null);
-    setLastActiveInstanceName(null);
-    localStorage.removeItem(LAST_ACTIVE_INSTANCE_KEY);
-    // Não limpa allInstances ou history (são persistentes/carregados no início)
-  }, [resetMainUIDisplayAndPolling]);
-
-  // Efeito de Inicialização da Página
-  useEffect(() => {
-    const initializePage = async () => {
-      setLoadingGlobal(true);
-      isMounted.current = false; // Reset isMounted for initialization logic
-
-      let cachedData: InstanceDetail[] = [];
-      const cachedAllInstancesString = localStorage.getItem(ALL_INSTANCES_KEY);
-      if (cachedAllInstancesString) {
         try {
-          cachedData = JSON.parse(cachedAllInstancesString);
-          if (Array.isArray(cachedData)) {
-            setAllInstances(cachedData);
-          } else {
-            localStorage.removeItem(ALL_INSTANCES_KEY); // Cache inválido
-          }
-        } catch (e) {
-          console.error("Erro ao carregar allInstances do cache:", e);
-          localStorage.removeItem(ALL_INSTANCES_KEY);
+            setIsLoadingInstances(true);
+
+            // Simular chamada para API
+            await new Promise(resolve => setTimeout(resolve, 1200));
+
+            // Dados de exemplo
+            const mockInstances: InstanceDetail[] = [
+                { name: "agenda_ai", status: "open" },
+                { name: "agenda_ai_backup", status: "close" }
+            ];
+
+            setInstanceList(mockInstances);
+
+        } catch (error) {
+            console.error("Erro ao listar instâncias:", error);
+            setError("Não foi possível listar as instâncias");
+        } finally {
+            setIsLoadingInstances(false);
         }
-      }
-
-      const fetchedInstances = await fetchAllInstances(); // Sempre busca do servidor para ter dados frescos
-
-      const finalInstances =
-        fetchedInstances.length > 0 ? fetchedInstances : cachedData;
-
-      const savedHistoryString = localStorage.getItem(INSTANCE_HISTORY_KEY);
-      if (savedHistoryString) {
-        try {
-          const localHistory = JSON.parse(savedHistoryString);
-          if (Array.isArray(localHistory)) setHistory(localHistory);
-        } catch (e) {
-          console.error("Erro ao carregar histórico do localStorage:", e);
-        }
-      }
-
-      const lastActive = localStorage.getItem(LAST_ACTIVE_INSTANCE_KEY);
-      if (lastActive) {
-        setLastActiveInstanceName(lastActive);
-      }
-
-      let activeInstanceSet = false;
-      // Usa finalInstances (dados do fetch ou cache) para determinar a seleção automática.
-      // allInstances (estado React) já foi atualizado por fetchAllInstances (se bem-sucedido) ou manteve o cache.
-      const instancesToConsiderForAutoSelection =
-        finalInstances.length > 0
-          ? finalInstances
-          : cachedData.length > 0
-            ? cachedData
-            : [];
-
-      if (instancesToConsiderForAutoSelection.length > 0) {
-        const connectedOrOpenInstance =
-          instancesToConsiderForAutoSelection.find(
-            (inst) => inst.status === "conectado" || inst.status === "open",
-          );
-        let instanceToAutoSelect: InstanceDetail | undefined =
-          connectedOrOpenInstance;
-
-        if (!instanceToAutoSelect && lastActive) {
-          const lastActiveInstance = instancesToConsiderForAutoSelection.find(
-            (inst) => inst.name === lastActive,
-          );
-          // Só seleciona a última ativa se ela não estiver já conectada/open (já coberto por connectedOrOpenInstance)
-          if (
-            lastActiveInstance &&
-            lastActiveInstance.status !== "conectado" &&
-            lastActiveInstance.status !== "open"
-          ) {
-            instanceToAutoSelect = lastActiveInstance;
-          }
-        }
-
-        if (!instanceToAutoSelect) {
-          instanceToAutoSelect = instancesToConsiderForAutoSelection.find(
-            (inst) => inst.status === "close",
-          );
-        }
-        // Fallback para a primeira da lista se nenhuma das anteriores
-        if (
-          !instanceToAutoSelect &&
-          instancesToConsiderForAutoSelection.length > 0
-        ) {
-          // instanceToAutoSelect = instancesToConsider[0]; // Comentado para não selecionar automaticamente qualquer uma
-        }
-
-        if (instanceToAutoSelect) {
-          setInstanceName(instanceToAutoSelect.name);
-          setCurrentOperationInstanceName(instanceToAutoSelect.name);
-          setLastActiveInstanceName(instanceToAutoSelect.name);
-          activeInstanceSet = true;
-
-          if (
-            instanceToAutoSelect.status === "conectado" ||
-            instanceToAutoSelect.status === "open"
-          ) {
-            setQrCodeSrc("/images/conectado.png");
-            setIsConnected(true);
-            // Atualiza o estado em allInstances para refletir 'conectado' se era 'open'
-            setAllInstances((prev) =>
-              prev.map((inst) =>
-                inst.name === instanceToAutoSelect!.name
-                  ? { ...inst, status: "conectado" }
-                  : inst,
-              ),
-            );
-          } else if (
-            instanceToAutoSelect.status === "close" ||
-            instanceToAutoSelect.status === "error" ||
-            instanceToAutoSelect.status === "unknown"
-          ) {
-            // Não inicia conexão automaticamente na carga para 'close', 'error', 'unknown'
-            // Apenas prepara a UI para uma ação do usuário
-            setQrCodeSrc(null); // Limpa QR antigo
-            setIsConnected(false);
-          } else if (instanceToAutoSelect.status === "connecting") {
-            // Se estiver 'connecting', inicia a verificação de status
-            setLoadingQr(true);
-            startStatusCheck(instanceToAutoSelect.name);
-          }
-        } else if (!activeInstanceSet && allInstances.length > 0) {
-          // Fallback para a primeira instância da lista se nenhuma outra lógica de seleção se aplicar
-          // e nenhuma instância foi definida ainda.
-          const firstInstance = allInstances[0];
-          setInstanceName(firstInstance.name);
-          setCurrentOperationInstanceName(firstInstance.name);
-          setLastActiveInstanceName(firstInstance.name);
-          if (
-            firstInstance.status === "conectado" ||
-            firstInstance.status === "open"
-          ) {
-            setQrCodeSrc("/images/conectado.png");
-            setIsConnected(true);
-            setAllInstances((prev) =>
-              prev.map((inst) =>
-                inst.name === firstInstance.name
-                  ? { ...inst, status: "conectado" }
-                  : inst,
-              ),
-            );
-          } else if (firstInstance.status === "connecting") {
-            setLoadingQr(true);
-            startStatusCheck(firstInstance.name);
-          } else {
-            // Para 'close', 'error', 'unknown', apenas seleciona, não inicia conexão.
-            setQrCodeSrc(null);
-            setIsConnected(false);
-          }
-        }
-      }
-      setLoadingGlobal(false);
     };
 
-    initializePage();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchAllInstances]); // fetchAllInstances é useCallback
+    // Carregar lista de instâncias quando a aba for selecionada
+    useEffect(() => {
+        if (currentTab === "instances") {
+            fetchInstanceList();
+        }
+    }, [currentTab]);
 
-  // Efeito para limpar mensagens de usuário após 5 segundos
-  useEffect(() => {
-    if (userMessage) {
-      const messageTimer = setTimeout(() => {
-        setUserMessage(null);
-      }, 5000); // Mensagem desaparece após 5 segundos
-      return () => clearTimeout(messageTimer);
-    }
-  }, [userMessage]);
+    // Gerar novo QR Code
+    const generateQRCode = async () => {
+        try {
+            setIsLoadingQR(true);
+            setError(null);
 
-  // Salvar histórico no localStorage
-  useEffect(() => {
-    if (isMounted.current) {
-      // Evita salvar na montagem inicial antes de carregar
-      localStorage.setItem(INSTANCE_HISTORY_KEY, JSON.stringify(history));
-    } else {
-      isMounted.current = true;
-    }
-  }, [history]);
+            // Simular chamada para API
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // Salvar allInstances no localStorage
-  useEffect(() => {
-    if (isMounted.current && allInstances.length > 0) {
-      localStorage.setItem(ALL_INSTANCES_KEY, JSON.stringify(allInstances));
-    } else if (isMounted.current && allInstances.length === 0) {
-      // Se a lista ficar vazia após montagem (ex: todas instâncias removidas externamente e fetchAllInstances retorna vazio)
-      // então removemos o cache para não carregar uma lista vazia antiga na próxima vez.
-      localStorage.removeItem(ALL_INSTANCES_KEY);
-    }
-  }, [allInstances]);
+            // Dados de exemplo
+            const mockResponse: QRCodeResponse = {
+                qrCodeBase64: "data:image/png;base64,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",
+                status: "qrcode",
+            };
 
-  // Salvar última instância ativa
-  useEffect(() => {
-    if (isMounted.current && lastActiveInstanceName) {
-      localStorage.setItem(LAST_ACTIVE_INSTANCE_KEY, lastActiveInstanceName);
-    }
-  }, [lastActiveInstanceName]);
+            setQrCodeData(mockResponse);
 
-  if (loadingGlobal) {
-    return (
-      <div className="container text-center py-5">
-        <Loader2 className="animate-spin me-2" size={48} />
-        <p className="mt-2">Carregando configurações da página...</p>
-      </div>
-    );
-  }
+            // Iniciar polling para verificar a conexão
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+            }
 
-  return (
-    <div className="container pb-5">
-      {" "}
-      {/* Adicionado padding bottom */}
-      <div className="card mb-4">
-        <div className="card-body">
-          <h1 className="display-6 fw-bold mb-4">
-            Gerenciador de WhatsApp para Agendamentos
-          </h1>
+            pollIntervalRef.current = setInterval(() => {
+                checkConnectionStatus();
+            }, 3000);
 
-          {error && ( // Mantido por enquanto, para erros não cobertos por userMessage ou para depuração
-            <div
-              className="alert alert-danger d-flex align-items-center mb-4"
-              role="alert"
-            >
-              <AlertCircle className="me-2 flex-shrink-0" />
-              <small>{error}</small>
-            </div>
-          )}
+        } catch (error) {
+            console.error("Erro ao gerar QR Code:", error);
+            setError("Não foi possível gerar o QR Code. Tente novamente.");
+        } finally {
+            setIsLoadingQR(false);
+        }
+    };
 
-          {userMessage && (
-            <div
-              className={`alert alert-${userMessage.type === "error" ? "danger" : userMessage.type === "success" ? "success" : "info"} d-flex align-items-center mb-4 alert-dismissible fade show`}
-              role="alert"
-            >
-              {userMessage.type === "success" && (
-                <CheckCircle2 className="me-2 flex-shrink-0" />
-              )}
-              {userMessage.type === "error" && (
-                <AlertTriangle className="me-2 flex-shrink-0" />
-              )}
-              {userMessage.type === "info" && (
-                <Info className="me-2 flex-shrink-0" />
-              )}
-              <small>{userMessage.message}</small>
-              <button
-                type="button"
-                className="btn-close"
-                onClick={() => setUserMessage(null)}
-                aria-label="Close"
-              ></button>
-            </div>
-          )}
+    // Verificar status da conexão
+    const checkConnectionStatus = async () => {
+        try {
+            // Simular chamada para API
+            const mockResponse: QRCodeResponse = {
+                status: Math.random() > 0.5 ? "open" : "qrcode",
+            };
 
-          {/* Removido o alerta de conectado específico, pois userMessage cobrirá isso */}
-          {/* {isConnected && instanceName === currentOperationInstanceName && qrCodeSrc === '/images/conectado.png' && ( ... )} */}
+            setQrCodeData(mockResponse);
 
-          <div className="mb-3">
-            {" "}
-            {/* Reduzido mb-4 para mb-3 */}
-            <label htmlFor="instanceNameInput" className="form-label">
-              Nome da Instância
-            </label>
-            <input
-              id="instanceNameInput"
-              type="text"
-              value={instanceName}
-              onChange={(e) => {
-                setInstanceName(e.target.value);
-                // Se o nome mudar, reseta o estado de QR/conexão da instância anterior
-                // mas não limpa currentOperationInstanceName se o novo nome for uma instância existente
-                // A seleção da lista ou o clique no botão principal definirão currentOperationInstanceName
-                if (e.target.value !== currentOperationInstanceName) {
-                  // resetMainUIDisplayAndPolling(); // Chamada movida para ser mais granular
-                  if (
-                    timerIntervalRef.current &&
-                    currentOperationInstanceName !== e.target.value
-                  ) {
-                    clearInterval(timerIntervalRef.current);
-                    timerIntervalRef.current = null;
-                  }
-                  setQrCodeSrc(null);
-                  setIsConnected(false);
-                  // setError(null); // Não limpa erro global ao digitar
-                  setLoadingQr(false);
+            // Se conectado, parar de verificar
+            if (mockResponse.status === "open") {
+                if (pollIntervalRef.current) {
+                    clearInterval(pollIntervalRef.current);
+                    pollIntervalRef.current = null;
                 }
-              }}
-              className="form-control product-form-input"
-              placeholder="Digite ou selecione uma instância"
-              disabled={loadingQr}
-            />
-          </div>
 
-          <div className="d-flex flex-column flex-sm-row gap-2 mb-3">
-            {" "}
-            {/* gap-3 para gap-2, mb-4 para mb-3 */}
-            <button
-              onClick={() => initiateConnectionProcess(instanceName)}
-              className="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center gap-2 py-2 hover-scale"
-              disabled={
-                (loadingQr && instanceName === currentOperationInstanceName) ||
-                (isConnected &&
-                  instanceName === currentOperationInstanceName &&
-                  qrCodeSrc === "/images/conectado.png")
-              }
-            >
-              {loadingQr && instanceName === currentOperationInstanceName ? (
-                <>
-                  <Loader2 className="animate-spin me-2" size={18} />
-                  <span>Processando \'{instanceName}\'...</span>
-                </>
-              ) : (
-                <>
-                  <QrCodeIcon size={18} />
-                  <span>
-                    {allInstances.find((inst) => inst.name === instanceName)
-                      ? allInstances.find((inst) => inst.name === instanceName)
-                        ?.status === "conectado"
-                        ? "Verificar Conexão"
-                        : "Conectar / Atualizar QR"
-                      : "Criar e Conectar"}
-                  </span>
-                </>
-              )}
-            </button>
-            <button
-              onClick={handleClearAll}
-              className="btn btn-light flex-grow-1 d-flex align-items-center justify-content-center gap-2 py-2 hover-scale"
-              disabled={loadingQr}
-            >
-              <Trash2 size={18} />
-              <span>Limpar Painel</span>
-            </button>
-          </div>
+                setSuccessMessage("WhatsApp conectado com sucesso!");
+                setTimeout(() => setSuccessMessage(null), 5000);
+            }
 
-          {/* Exibição do QR Code ou Imagem de Conectado */}
-          {/* Mostra apenas se a instância em operação é a mesma no input */}
-          {(loadingQr || qrCodeSrc) &&
-            instanceName === currentOperationInstanceName && (
-              <div
-                className={`mt-3 qr-code-wrapper text-center p-3 rounded ${isConnected && qrCodeSrc === "/images/conectado.png" ? "bg-light" : "bg-white border"}`}
-              >
-                {loadingQr && !qrCodeSrc && (
-                  <div className="d-flex flex-column align-items-center justify-content-center py-5">
-                    <Loader2
-                      className="animate-spin text-primary mb-2"
-                      size={48}
-                    />
-                    <p>
-                      Obtendo QR Code para{" "}
-                      <strong>{currentOperationInstanceName}</strong>...
+        } catch (error) {
+            console.error("Erro ao verificar conexão:", error);
+        }
+    };
+
+    // Desconectar WhatsApp
+    const disconnectWhatsApp = async () => {
+        try {
+            setIsDisconnecting(true);
+            setError(null);
+
+            // Simular chamada para API
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            // Simular resposta de sucesso
+            setQrCodeData({
+                status: "close"
+            });
+
+            setSuccessMessage("WhatsApp desconectado com sucesso!");
+            setTimeout(() => setSuccessMessage(null), 5000);
+
+        } catch (error) {
+            console.error("Erro ao desconectar:", error);
+            setError("Não foi possível desconectar o WhatsApp");
+        } finally {
+            setIsDisconnecting(false);
+        }
+    };
+
+    // Excluir instância
+    const deleteInstance = async (instanceName: string) => {
+        try {
+            // Simular chamada para API
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Atualizar a lista após exclusão
+            setInstanceList(prev => prev.filter(instance => instance.name !== instanceName));
+
+            setSuccessMessage(`Instância ${instanceName} excluída com sucesso!`);
+            setTimeout(() => setSuccessMessage(null), 5000);
+
+        } catch (error) {
+            console.error("Erro ao excluir instância:", error);
+            setError(`Não foi possível excluir a instância ${instanceName}`);
+        }
+    };
+
+    // Renderizar status atual com cor e ícone apropriados
+    const renderStatus = useCallback(() => {
+        if (!qrCodeData || !qrCodeData.status) return null;
+
+        const statusInfo = STATUS_DISPLAY_INFO[qrCodeData.status] || {
+            text: "Desconhecido",
+            color: "text-gray-500",
+            bgColor: "bg-gray-50 dark:bg-gray-800",
+            icon: HelpCircle
+        };
+
+        const StatusIcon = statusInfo.icon;
+
+        return (
+            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${statusInfo.bgColor} ${statusInfo.color}`}>
+                <StatusIcon size={16} />
+                <span className="font-medium">{statusInfo.text}</span>
+            </div>
+        );
+    }, [qrCodeData]);
+
+    return (
+        <DashboardLayout userName="Usuário">
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-2xl font-bold mb-1">Conexão WhatsApp</h1>
+                    <p className="text-muted-foreground">
+                        Configure a conexão do WhatsApp para enviar mensagens
                     </p>
-                  </div>
-                )}
-                {qrCodeSrc && (
-                  <Image
-                    key={
-                      isConnected
-                        ? `connected-${currentOperationInstanceName}`
-                        : qrCodeSrc
-                    } // Chave única para forçar recarregamento
-                    src={qrCodeSrc}
-                    alt={
-                      isConnected && qrCodeSrc === "/images/conectado.png"
-                        ? `Instância ${currentOperationInstanceName} Conectada`
-                        : "Escaneie o QR Code"
-                    }
-                    width={256}
-                    height={256}
-                    className="img-fluid rounded animate-slide-in"
-                    priority={
-                      !isConnected || qrCodeSrc !== "/images/conectado.png"
-                    } // Prioriza carregamento do QR code
-                    unoptimized={qrCodeSrc.startsWith("data:image")}
-                  />
-                )}
-              </div>
-            )}
-
-          {/* Seção de Instâncias Salvas */}
-          <div className="card mt-4">
-            <div className="card-header d-flex justify-content-between align-items-center">
-              <h5 className="mb-0 d-flex align-items-center">
-                <ListChecks className="me-2" /> Instâncias Salvas
-              </h5>
-              <button
-                onClick={() => fetchAllInstances()}
-                className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1" // Estilo melhorado
-                disabled={loadingInstancesList}
-              >
-                {loadingInstancesList ? (
-                  <Loader2 className="animate-spin" size={16} />
-                ) : (
-                  <RefreshCw size={16} />
-                )}
-                Atualizar Lista
-              </button>
-            </div>
-            <div className="list-group list-group-flush">
-              {loadingInstancesList && allInstances.length === 0 ? (
-                <div className="list-group-item text-center p-3">
-                  <Loader2 className="animate-spin me-2" /> Carregando
-                  instâncias...
                 </div>
-              ) : allInstances.length > 0 ? (
-                allInstances.map((instance) => {
-                  const displayInfo = getInstanceDisplayInfo(instance.status);
-                  const IconComponent = displayInfo.icon;
-                  return (
-                    <div
-                      key={instance.name}
-                      className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${instance.name === instanceName ? "active-instance" : ""}`}
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleSelectInstanceFromList(instance)}
-                    >
-                      <div className="flex-grow-1">
-                        <span className="fw-bold">{instance.name}</span>
-                        <small
-                          className={`ms-2 ${displayInfo.color} d-flex align-items-center`}
-                        >
-                          <IconComponent className="me-1" size={14} />
-                          {displayInfo.text}
-                        </small>
-                      </div>
-                      <div className="btn-group ms-2" role="group">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectInstanceFromList(instance);
-                          }}
-                          className={`btn btn-sm ${instance.status === "conectado" ||
-                              instance.status === "open"
-                              ? "btn-outline-success"
-                              : instance.status === "close" ||
-                                instance.status === "error" ||
-                                instance.status === "unknown"
-                                ? "btn-outline-primary"
-                                : "btn-outline-secondary"
-                            }`}
-                          disabled={
-                            (loadingQr &&
-                              currentOperationInstanceName === instance.name) ||
-                            loadingDisconnectInstanceName === instance.name
-                          }
-                        >
-                          {getListButtonText(instance.status)}
-                        </button>
-                        {(instance.status === "conectado" ||
-                          instance.status === "open") && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDisconnect(instance.name);
-                              }}
-                              className="btn btn-sm btn-outline-danger d-flex align-items-center"
-                              disabled={
-                                loadingDisconnectInstanceName === instance.name
-                              }
-                            >
-                              {loadingDisconnectInstanceName === instance.name ? (
-                                <Loader2 className="animate-spin" size={14} />
-                              ) : (
-                                <XCircle size={14} />
-                              )}
-                              <span className="ms-1">Desconectar</span>
-                            </button>
-                          )}
-                      </div>
+
+                {/* Mensagens de feedback */}
+                {error && (
+                    <div className="p-4 rounded-lg bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 flex items-center gap-3">
+                        <AlertCircle size={20} className="text-red-500" />
+                        <span>{error}</span>
                     </div>
-                  );
-                })
-              ) : (
-                <div className="list-group-item text-center p-3">
-                  Nenhuma instância encontrada.
-                </div>
-              )}
-            </div>
-          </div>
+                )}
 
-          {/* Botão de Histórico */}
-          <div className="mt-4 text-center">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="btn btn-outline-info btn-sm" // Estilo melhorado
-            >
-              <History size={16} className="me-1" />
-              {showHistory
-                ? "Ocultar Histórico"
-                : "Mostrar Histórico de Conexões"}
-            </button>
-          </div>
+                {successMessage && (
+                    <div className="p-4 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 flex items-center gap-3">
+                        <CheckCircle size={20} className="text-emerald-500" />
+                        <span>{successMessage}</span>
+                    </div>
+                )}
 
-          {/* Histórico de Conexões */}
-          {showHistory && (
-            <div className="mt-3">
-              {history.length > 0 ? (
-                <ul className="list-group list-group-flush shadow-sm">
-                  {history.map((h, index) => (
-                    <li
-                      key={index}
-                      className="list-group-item text-muted small"
-                    >
-                      <strong>{h.name}</strong> -{" "}
-                      {h.status === "connected"
-                        ? "Conectado"
-                        : h.status === "error"
-                          ? "Erro"
-                          : "Desconectado"}{" "}
-                      em: {new Date(h.lastConnected).toLocaleString()}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted small">Nenhum histórico recente.</p>
-              )}
+                <Tabs
+                    defaultValue="connection"
+                    value={currentTab}
+                    onValueChange={setCurrentTab}
+                    className="w-full"
+                >
+                    <TabsList className="grid grid-cols-3 mb-8">
+                        <TabsTrigger value="connection" className="flex items-center gap-2">
+                            <QrCode size={16} />
+                            <span>Conexão</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="history" className="flex items-center gap-2">
+                            <History size={16} />
+                            <span>Histórico</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="instances" className="flex items-center gap-2">
+                            <ListChecks size={16} />
+                            <span>Instâncias</span>
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="connection">
+                        <Card>
+                            <CardHeader>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div>
+                                        <CardTitle>Status da Conexão</CardTitle>
+                                        <CardDescription>
+                                            Escaneie o QR Code para conectar seu WhatsApp
+                                        </CardDescription>
+                                    </div>
+                                    {!isLoading && renderStatus()}
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {isLoading ? (
+                                    <div className="flex justify-center py-20">
+                                        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        <div className="flex flex-col items-center justify-center p-6 border rounded-lg">
+                                            {qrCodeData?.status === "qrcode" && qrCodeData?.qrCodeBase64 ? (
+                                                <div className="text-center">
+                                                    <div className="mb-4">
+                                                        <Image
+                                                            src={qrCodeData.qrCodeBase64}
+                                                            alt="QR Code do WhatsApp"
+                                                            width={280}
+                                                            height={280}
+                                                            className="mx-auto"
+                                                        />
+                                                    </div>
+                                                    <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                                                        Escaneie este QR Code com seu WhatsApp para conectar
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8">
+                                                    <QrCode size={120} className="text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                                                    <p className="text-muted-foreground mb-2">
+                                                        {qrCodeData?.status === "open"
+                                                            ? "WhatsApp já está conectado"
+                                                            : "Gere um QR Code para conectar seu WhatsApp"}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-col justify-center space-y-6">
+                                            <div className="space-y-2">
+                                                <h3 className="font-medium">Instruções</h3>
+                                                <div className="space-y-4 text-sm text-muted-foreground">
+                                                    <div className="flex gap-2">
+                                                        <div className="flex h-6 w-6 rounded-full bg-primary/10 text-primary items-center justify-center flex-shrink-0">
+                                                            1
+                                                        </div>
+                                                        <p>Abra o WhatsApp no seu celular</p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <div className="flex h-6 w-6 rounded-full bg-primary/10 text-primary items-center justify-center flex-shrink-0">
+                                                            2
+                                                        </div>
+                                                        <p>Toque em Mais opções ou Configurações e selecione Dispositivos conectados</p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <div className="flex h-6 w-6 rounded-full bg-primary/10 text-primary items-center justify-center flex-shrink-0">
+                                                            3
+                                                        </div>
+                                                        <p>Toque em Conectar um dispositivo</p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <div className="flex h-6 w-6 rounded-full bg-primary/10 text-primary items-center justify-center flex-shrink-0">
+                                                            4
+                                                        </div>
+                                                        <p>Aponte seu celular para esta tela para capturar o código QR</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col xs:flex-row gap-3">
+                                                <Button
+                                                    onClick={generateQRCode}
+                                                    disabled={isLoadingQR || (qrCodeData?.status === "qrcode")}
+                                                    className="flex items-center gap-2"
+                                                >
+                                                    {isLoadingQR ? <Loader2 size={16} className="animate-spin" /> : <QrCode size={16} />}
+                                                    {qrCodeData?.status === "qrcode" ? "QR Code gerado" : "Gerar QR Code"}
+                                                </Button>
+
+                                                {qrCodeData?.status === "open" && (
+                                                    <Button
+                                                        onClick={disconnectWhatsApp}
+                                                        disabled={isDisconnecting}
+                                                        variant="destructive"
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        {isDisconnecting ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
+                                                        Desconectar
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                            <CardFooter className="flex flex-col items-start">
+                                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                                    <Info size={16} className="mt-0.5 flex-shrink-0" />
+                                    <p>
+                                        Depois de conectado, seu WhatsApp permanecerá ativo até que você desconecte manualmente
+                                        ou limpe os dados do navegador. Não desinstale o WhatsApp do seu telefone.
+                                    </p>
+                                </div>
+                            </CardFooter>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="history">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Histórico de Conexões</CardTitle>
+                                <CardDescription>
+                                    Visualize o histórico de conexões do WhatsApp
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {instanceHistory.length === 0 ? (
+                                    <div className="text-center py-12 text-muted-foreground">
+                                        <History size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                                        <p>Nenhum histórico de conexão encontrado</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {instanceHistory.map((instance, index) => (
+                                            <div
+                                                key={index}
+                                                className="p-4 border rounded-lg flex items-center justify-between"
+                                            >
+                                                <div>
+                                                    <div className="font-medium mb-1">{instance.name}</div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        Última conexão: {new Date(instance.lastConnected).toLocaleString('pt-BR')}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium 
+                            ${instance.status === 'connected'
+                                                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
+                                                            : instance.status === 'error'
+                                                                ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                                                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                                        }`}
+                                                    >
+                                                        {instance.status === 'connected' ? (
+                                                            <CheckCircle size={12} />
+                                                        ) : instance.status === 'error' ? (
+                                                            <AlertCircle size={12} />
+                                                        ) : (
+                                                            <XCircle size={12} />
+                                                        )}
+                                                        <span>
+                                                            {instance.status === 'connected'
+                                                                ? 'Conectado'
+                                                                : instance.status === 'error'
+                                                                    ? 'Erro'
+                                                                    : 'Desconectado'
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="instances">
+                        <Card>
+                            <CardHeader>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div>
+                                        <CardTitle>Instâncias Disponíveis</CardTitle>
+                                        <CardDescription>
+                                            Gerencie as instâncias de WhatsApp
+                                        </CardDescription>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={fetchInstanceList}
+                                        className="flex items-center gap-1.5"
+                                        disabled={isLoadingInstances}
+                                    >
+                                        <RefreshCw size={14} className={isLoadingInstances ? "animate-spin" : ""} />
+                                        Atualizar
+                                    </Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                {isLoadingInstances ? (
+                                    <div className="flex justify-center py-12">
+                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                    </div>
+                                ) : instanceList.length === 0 ? (
+                                    <div className="text-center py-12 text-muted-foreground">
+                                        <ListChecks size={48} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                                        <p>Nenhuma instância encontrada</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {instanceList.map((instance, index) => {
+                                            const statusInfo = STATUS_DISPLAY_INFO[instance.status] || {
+                                                text: "Desconhecido",
+                                                color: "text-gray-500",
+                                                bgColor: "bg-gray-50",
+                                                icon: HelpCircle
+                                            };
+
+                                            const StatusIcon = statusInfo.icon;
+
+                                            return (
+                                                <div
+                                                    key={index}
+                                                    className="p-4 border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                                >
+                                                    <div>
+                                                        <div className="font-medium mb-1">{instance.name}</div>
+                                                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full ${statusInfo.bgColor} ${statusInfo.color} text-xs`}>
+                                                            <StatusIcon size={12} />
+                                                            <span>{statusInfo.text}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="flex items-center gap-1.5"
+                                                            disabled={instance.status === "open"}
+                                                            onClick={() => {
+                                                                // Lógica para reconectar
+                                                                alert("Funcionalidade em desenvolvimento");
+                                                            }}
+                                                        >
+                                                            <RefreshCw size={14} />
+                                                            Reconectar
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="flex items-center gap-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                            onClick={() => deleteInstance(instance.name)}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                            Excluir
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+        </DashboardLayout>
+    );
 }

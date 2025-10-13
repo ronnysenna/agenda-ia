@@ -13,7 +13,12 @@ import {
     FormItem,
     FormControl,
     FormMessage,
+    FormLabel,
 } from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+// Usando Input temporariamente no lugar de Textarea
+import { Card } from "@/components/ui/card";
 
 const schema = z.object({
     name: z.string().min(1, "Nome do serviço é obrigatório"),
@@ -78,185 +83,171 @@ export default function AddServicePage() {
     };
 
     return (
-        <div className="container py-4">
-            <div className="card product-form-card p-4">
-                <div className="d-flex align-items-center mb-4">
-                    <button
-                        type="button"
-                        className="back-button bg-transparent border-0"
+        <div className="container mx-auto py-6 px-4 max-w-3xl">
+            <Card className="p-6">
+                <div className="flex items-center mb-6">
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => router.back()}
+                        className="mr-2"
                     >
-                        <ArrowLeft size={24} />
-                    </button>
-                    <h1 className="h3 mb-0 ms-3">Adicionar Serviço</h1>
+                        <ArrowLeft size={20} />
+                        <span className="sr-only">Voltar</span>
+                    </Button>
+                    <h1 className="text-2xl font-bold">Adicionar Serviço</h1>
                 </div>
 
-                <div className="text-center mb-4">
-                    <div className="position-relative d-inline-block">
-                        <div
-                            className="image-upload-area d-flex align-items-center justify-content-center"
-                            style={{ width: "200px", height: "200px" }}
+                <div className="flex justify-center mb-6">
+                    <div className="relative">
+                        <label
+                            htmlFor="image-upload"
+                            className="block w-48 h-48 rounded-lg overflow-hidden border-2 border-dashed border-muted cursor-pointer"
                         >
                             {previewUrl ? (
                                 <Image
                                     src={previewUrl}
                                     alt="Imagem do serviço"
-                                    width={200}
-                                    height={200}
-                                    className="rounded-3 object-fit-cover w-100 h-100"
+                                    fill
+                                    className="object-cover"
                                 />
                             ) : (
-                                <div className="text-center">
-                                    <Camera size={48} className="text-muted mb-2" />
-                                    <p className="small text-muted mb-0">
+                                <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                                    <Camera size={32} className="text-muted-foreground mb-2" />
+                                    <p className="text-sm text-muted-foreground">
                                         Clique para adicionar uma imagem
                                     </p>
                                 </div>
                             )}
-                            <input
-                                id="image-upload"
-                                type="file"
-                                accept="image/*"
-                                className="d-none"
-                                onChange={handleImageChange}
-                            />
-                        </div>
+                        </label>
+                        <input
+                            id="image-upload"
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImageChange}
+                        />
                     </div>
                 </div>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="row g-3">
-                        <div className="col-12">
-                            <FormField
-                                control={form.control}
-                                name="name"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <label className="form-label">Nome do Serviço</label>
-                                        <FormControl>
-                                            <input
-                                                type="text"
-                                                className="product-form-input w-100"
-                                                placeholder="Digite o nome do serviço"
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage className="text-danger small mt-1" />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nome do Serviço</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="Digite o nome do serviço"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-                        <div className="col-12">
-                            <FormField
-                                control={form.control}
-                                name="description"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <label className="form-label">Descrição</label>
-                                        <FormControl>
-                                            <textarea
-                                                className="product-form-input w-100"
-                                                placeholder="Digite a descrição do serviço"
-                                                rows={3}
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage className="text-danger small mt-1" />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                        <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Descrição</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="Digite a descrição do serviço"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-                        <div className="col-md-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
                                 name="price"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <label className="form-label">Preço</label>
+                                        <FormLabel>Preço</FormLabel>
                                         <FormControl>
-                                            <input
+                                            <Input
                                                 type="number"
                                                 step="0.01"
-                                                className="product-form-input w-100"
                                                 placeholder="R$ 0.00"
                                                 {...field}
                                             />
                                         </FormControl>
-                                        <FormMessage className="text-danger small mt-1" />
+                                        <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                        </div>
 
-                        <div className="col-md-6">
                             <FormField
                                 control={form.control}
                                 name="duration"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <label className="form-label">Duração (minutos)</label>
-                                        <FormControl>
-                                            <div className="input-group">
-                                                <input
+                                        <FormLabel>Duração (minutos)</FormLabel>
+                                        <div className="relative">
+                                            <FormControl>
+                                                <Input
                                                     type="number"
-                                                    className="product-form-input w-100"
                                                     placeholder="60"
                                                     min="5"
+                                                    className="pr-10"
                                                     {...field}
                                                 />
-                                                <span className="input-group-text">
-                                                    <Clock size={16} />
-                                                </span>
+                                            </FormControl>
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                <Clock size={16} className="text-muted-foreground" />
                                             </div>
-                                        </FormControl>
-                                        <FormMessage className="text-danger small mt-1" />
+                                        </div>
+                                        <FormMessage />
                                     </FormItem>
                                 )}
                             />
                         </div>
 
-                        <div className="col-md-6">
-                            <FormField
-                                control={form.control}
-                                name="category"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <label className="form-label">Categoria</label>
-                                        <FormControl>
-                                            <input
-                                                type="text"
-                                                className="product-form-input w-100"
-                                                placeholder="Digite a categoria"
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage className="text-danger small mt-1" />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                        <FormField
+                            control={form.control}
+                            name="category"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Categoria</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="Digite a categoria"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-                        <div className="col-12 mt-4">
-                            <button
+                        <div className="pt-2">
+                            <Button
                                 type="submit"
-                                className="submit-button w-100 d-flex align-items-center justify-content-center gap-2"
+                                className="w-full"
                                 disabled={isLoading}
                             >
                                 {isLoading ? (
                                     <>
-                                        <Loader2 className="animate-spin" size={20} />
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                         <span>Cadastrando...</span>
                                     </>
                                 ) : (
                                     "Cadastrar Serviço"
                                 )}
-                            </button>
+                            </Button>
                         </div>
                     </form>
                 </Form>
-            </div>
+            </Card>
         </div>
     );
 }

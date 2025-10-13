@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { SearchIcon, EditIcon, Plus, AlertCircle, Clock } from "lucide-react";
+import { Search, Plus, AlertCircle } from "lucide-react";
+import { ServiceCard } from "@/components/ui/service-card";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 interface Service {
     id: string;
@@ -54,169 +57,109 @@ export default function ServicesCatalogPage() {
         }
     };
 
-    // Função para formatar duração
-    const formatDuration = (minutes: number) => {
-        if (minutes < 60) {
-            return `${minutes} min`;
-        } else {
-            const hours = Math.floor(minutes / 60);
-            const remainingMinutes = minutes % 60;
-            return remainingMinutes > 0
-                ? `${hours}h ${remainingMinutes}min`
-                : `${hours}h`;
-        }
-    };
-
     return (
-        <div className="container-fluid py-4">
+        <div className="container mx-auto py-6 px-4 max-w-7xl">
             {error && (
-                <div className="profile-feedback error d-flex align-items-center gap-2">
+                <div className="bg-destructive/15 text-destructive p-4 rounded-lg flex items-center gap-2 mb-6">
                     <AlertCircle size={20} />
-                    {error}
+                    <p>{error}</p>
                 </div>
             )}
 
-            <div className="profile-card">
-                <div className="card-body p-4">
-                    <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
-                        <div>
-                            <h1 className="h3 mb-1 fw-bold gradient-number">
-                                Catálogo de Serviços
-                            </h1>
-                            <p className="text-muted mb-0">
-                                Gerencie seus serviços e horários
-                            </p>
-                        </div>
-                        <Link
-                            href="/service/addService"
-                            className="btn btn-primary d-flex align-items-center justify-content-center gap-2 hover-scale"
-                        >
+            <Card className="p-6">
+                <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 mb-6">
+                    <div>
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent">
+                            Catálogo de Serviços
+                        </h1>
+                        <p className="text-muted-foreground">
+                            Gerencie seus serviços e horários
+                        </p>
+                    </div>
+
+                    <Button asChild>
+                        <Link href="/service/addService">
                             <Plus size={18} />
                             <span>Novo Serviço</span>
                         </Link>
-                    </div>
-
-                    <div className="card-status-info p-3 rounded-3 mb-4">
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                handleSearch();
-                            }}
-                        >
-                            <div className="profile-form-group mb-0">
-                                <div className="input-group">
-                                    <input
-                                        type="text"
-                                        className="form-control profile-form-control"
-                                        placeholder="Digite o nome do serviço, categoria ou descrição..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                    <button
-                                        type="submit"
-                                        className="btn btn-primary d-flex align-items-center gap-2 hover-scale"
-                                        disabled={loading}
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <div
-                                                    className="spinner-border spinner-border-sm"
-                                                    role="status"
-                                                >
-                                                    <span className="visually-hidden">Carregando...</span>
-                                                </div>
-                                                <span>Buscando...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <SearchIcon size={18} />
-                                                <span>Buscar</span>
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    {loading ? (
-                        <div className="text-center p-5">
-                            <div className="spinner-border text-primary mb-3" role="status">
-                                <span className="visually-hidden">Carregando...</span>
-                            </div>
-                            <p className="text-muted mb-0">Buscando serviços...</p>
-                        </div>
-                    ) : services.length > 0 ? (
-                        <div className="row g-4">
-                            {services.map((service) => (
-                                <div key={service.id} className="col-12 col-md-6 col-lg-4">
-                                    <div className="card h-100 product-card hover-scale-sm">
-                                        <div className="ratio ratio-16x9 rounded-top overflow-hidden">
-                                            {service.imageUrl ? (
-                                                <Image
-                                                    src={service.imageUrl}
-                                                    alt={service.name}
-                                                    width={300}
-                                                    height={200}
-                                                    className="object-fit-cover"
-                                                />
-                                            ) : (
-                                                <div className="bg-light d-flex align-items-center justify-content-center">
-                                                    <span className="text-muted">Sem imagem</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="card-body">
-                                            <h5 className="card-title mb-2">{service.name}</h5>
-                                            {service.description && (
-                                                <p className="text-muted small mb-2">
-                                                    {service.description}
-                                                </p>
-                                            )}
-                                            <div className="d-flex justify-content-between align-items-center mb-3">
-                                                <span className="gradient-number h5 mb-0">
-                                                    R$ {service.price?.toFixed(2)}
-                                                </span>
-                                                <div className="d-flex align-items-center gap-1 text-muted">
-                                                    <Clock size={16} />
-                                                    <span>{formatDuration(service.duration)}</span>
-                                                </div>
-                                            </div>
-                                            {service.category && (
-                                                <div className="mb-3">
-                                                    <span className="badge bg-secondary">
-                                                        {service.category}
-                                                    </span>
-                                                </div>
-                                            )}
-                                            <Link
-                                                href={`/service/${service.id}/editService`}
-                                                className="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2 hover-scale"
-                                            >
-                                                <EditIcon size={18} />
-                                                <span>Editar Serviço</span>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        !loading &&
-                        searchTerm && (
-                            <div className="text-center p-5">
-                                <div className="icon-glass rounded-circle p-3 d-inline-flex mb-3">
-                                    <SearchIcon size={24} className="text-muted" />
-                                </div>
-                                <h5>Nenhum serviço encontrado</h5>
-                                <p className="text-muted mb-0">
-                                    Tente buscar com outros termos
-                                </p>
-                            </div>
-                        )
-                    )}
+                    </Button>
                 </div>
-            </div>
+
+                <div className="bg-muted/40 p-4 rounded-lg mb-6">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            handleSearch();
+                        }}
+                        className="flex flex-col sm:flex-row gap-3"
+                    >
+                        <div className="flex-1">
+                            <Input
+                                type="text"
+                                placeholder="Digite o nome do serviço, categoria ou descrição..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full"
+                            />
+                        </div>
+
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Buscando...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Search size={18} />
+                                    <span>Buscar</span>
+                                </>
+                            )}
+                        </Button>
+                    </form>
+                </div>
+
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                        <p className="text-muted-foreground">Buscando serviços...</p>
+                    </div>
+                ) : services.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {services.map((service) => (
+                            <ServiceCard
+                                key={service.id}
+                                id={service.id}
+                                name={service.name}
+                                description={service.description}
+                                price={service.price}
+                                duration={service.duration}
+                                category={service.category}
+                                imageUrl={service.imageUrl}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    !loading &&
+                    searchTerm && (
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <div className="bg-muted/30 p-4 rounded-full mb-4">
+                                <Search size={24} className="text-muted-foreground" />
+                            </div>
+                            <h5 className="text-lg font-medium mb-1">Nenhum serviço encontrado</h5>
+                            <p className="text-muted-foreground">
+                                Tente buscar com outros termos
+                            </p>
+                        </div>
+                    )
+                )}
+            </Card>
         </div>
     );
 }

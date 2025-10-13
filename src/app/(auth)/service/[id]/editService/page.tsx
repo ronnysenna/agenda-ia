@@ -13,7 +13,13 @@ import {
     FormItem,
     FormControl,
     FormMessage,
+    FormLabel,
 } from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 
 const schema = z.object({
     name: z.string().min(1, "Nome do serviço é obrigatório"),
@@ -26,25 +32,16 @@ const schema = z.object({
 
 type ServiceFormData = z.infer<typeof schema>;
 
-interface Service {
-    id: string;
-    name: string;
-    description?: string | null;
-    price?: number | null;
-    duration: number;
-    category?: string | null;
-    imageUrl?: string | null;
-    createdAt: string;
-    updatedAt: string;
-}
+// Interface removida por não estar sendo utilizada
 
-export default function EditServicePage(props: any) {
+export default function EditServicePage(props: { params: { id: string } }) {
     const { params } = props;
     const [isLoading, setIsLoading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isFetching, setIsFetching] = useState(true);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [service, setService] = useState<Service | null>(null);
+    // Removida a variável service não utilizada
+    // const [service, setService] = useState<Service | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [feedbackMessage, setFeedbackMessage] = useState<{ type: "success" | "error", text: string } | null>(null);
 
@@ -75,7 +72,6 @@ export default function EditServicePage(props: any) {
                 }
 
                 const data = await response.json();
-                setService(data);
 
                 // Preencher o formulário com os dados
                 form.reset({
@@ -180,11 +176,11 @@ export default function EditServicePage(props: any) {
                 router.push("/service/catalog");
             }, 2000);
 
-        } catch (error: any) {
+        } catch (error) {
             console.error("Erro ao excluir serviço:", error);
             setFeedbackMessage({
                 type: "error",
-                text: error.message || "Erro ao excluir serviço"
+                text: error instanceof Error ? error.message : "Erro ao excluir serviço"
             });
         } finally {
             setIsDeleting(false);
@@ -193,250 +189,234 @@ export default function EditServicePage(props: any) {
 
     if (isFetching) {
         return (
-            <div className="container py-4">
-                <div className="card product-form-card p-5 text-center">
-                    <div className="spinner-border text-primary mb-3" role="status">
-                        <span className="visually-hidden">Carregando...</span>
+            <div className="container mx-auto py-6 px-4 max-w-3xl">
+                <Card className="p-6 flex justify-center items-center">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                        <p className="text-muted-foreground">Carregando dados do serviço...</p>
                     </div>
-                    <p className="mb-0">Carregando dados do serviço...</p>
-                </div>
+                </Card>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="container py-4">
-                <div className="card product-form-card p-4">
-                    <div className="alert alert-danger d-flex align-items-center">
-                        <AlertCircle size={20} className="me-2" />
-                        {error}
-                    </div>
-                    <div className="text-center mt-3">
-                        <button
-                            className="btn btn-outline-primary"
-                            onClick={() => router.push("/service/catalog")}
-                        >
+            <div className="container mx-auto py-6 px-4 max-w-3xl">
+                <Card className="p-6">
+                    <div className="flex flex-col items-center py-8">
+                        <div className="rounded-full bg-destructive/20 p-3 mb-4">
+                            <AlertCircle size={32} className="text-destructive" />
+                        </div>
+                        <h3 className="text-xl font-medium mb-2">Erro</h3>
+                        <p className="text-muted-foreground mb-6">{error}</p>
+                        <Button onClick={() => router.push("/service/catalog")}>
                             Voltar para o catálogo
-                        </button>
+                        </Button>
                     </div>
-                </div>
+                </Card>
             </div>
         );
     }
 
     return (
-        <div className="container py-4">
+        <div className="container mx-auto py-6 px-4 max-w-3xl">
             {feedbackMessage && (
-                <div className={`alert ${feedbackMessage.type === "success" ? "alert-success" : "alert-danger"} d-flex align-items-center mb-3`}>
-                    {feedbackMessage.type === "success" ? (
-                        <CheckCircle size={20} className="me-2" />
+                <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${feedbackMessage.type === 'success'
+                        ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300'
+                        : 'bg-destructive/15 text-destructive'
+                    }`}>
+                    {feedbackMessage.type === 'success' ? (
+                        <CheckCircle size={20} className="text-green-600 dark:text-green-400" />
                     ) : (
-                        <AlertCircle size={20} className="me-2" />
+                        <AlertCircle size={20} />
                     )}
-                    {feedbackMessage.text}
+                    <p>{feedbackMessage.text}</p>
                 </div>
             )}
 
-            <div className="card product-form-card p-4">
-                <div className="d-flex align-items-center mb-4">
-                    <button
-                        type="button"
-                        className="back-button bg-transparent border-0"
-                        onClick={() => router.push("/service/catalog")}
+            <Card className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => router.push("/service/catalog")}
+                        >
+                            <ArrowLeft size={20} />
+                            <span className="sr-only">Voltar</span>
+                        </Button>
+                        <h1 className="text-2xl font-bold">Editar Serviço</h1>
+                    </div>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                        className="flex items-center gap-1"
                     >
-                        <ArrowLeft size={24} />
-                    </button>
-                    <h1 className="h3 mb-0 ms-3">Editar Serviço</h1>
+                        {isDeleting ? (
+                            <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                            <Trash2 size={16} />
+                        )}
+                        <span>{isDeleting ? "Excluindo..." : "Excluir"}</span>
+                    </Button>
                 </div>
 
-                <div className="text-center mb-4">
-                    <div className="position-relative d-inline-block">
-                        <label htmlFor="image-upload" className="cursor-pointer">
-                            <div
-                                className="image-upload-area d-flex align-items-center justify-content-center"
-                                style={{ width: "200px", height: "200px" }}
-                            >
-                                {previewUrl ? (
-                                    <Image
-                                        src={previewUrl}
-                                        alt="Imagem do serviço"
-                                        width={200}
-                                        height={200}
-                                        className="rounded-3 object-fit-cover w-100 h-100"
-                                    />
-                                ) : (
-                                    <div className="text-center">
-                                        <Camera size={48} className="text-muted mb-2" />
-                                        <p className="small text-muted mb-0">
-                                            Clique para adicionar uma imagem
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
+                <div className="flex justify-center mb-6">
+                    <div className="relative">
+                        <label
+                            htmlFor="image-upload"
+                            className="block w-48 h-48 rounded-lg overflow-hidden border-2 border-dashed border-muted cursor-pointer"
+                        >
+                            {previewUrl ? (
+                                <Image
+                                    src={previewUrl}
+                                    alt="Imagem do serviço"
+                                    fill
+                                    className="object-cover"
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                                    <Camera size={32} className="text-muted-foreground mb-2" />
+                                    <p className="text-sm text-muted-foreground">
+                                        Clique para alterar a imagem
+                                    </p>
+                                </div>
+                            )}
                         </label>
                         <input
                             id="image-upload"
                             type="file"
                             accept="image/*"
-                            className="d-none"
+                            className="hidden"
                             onChange={handleImageChange}
                         />
                     </div>
                 </div>
 
+                <Separator className="mb-6" />
+
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="row g-3">
-                        <div className="col-12">
-                            <FormField
-                                control={form.control}
-                                name="name"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <label className="form-label">Nome do Serviço</label>
-                                        <FormControl>
-                                            <input
-                                                type="text"
-                                                className="product-form-input w-100"
-                                                placeholder="Digite o nome do serviço"
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage className="text-danger small mt-1" />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nome do Serviço</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="Digite o nome do serviço"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-                        <div className="col-12">
-                            <FormField
-                                control={form.control}
-                                name="description"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <label className="form-label">Descrição</label>
-                                        <FormControl>
-                                            <textarea
-                                                className="product-form-input w-100"
-                                                placeholder="Digite a descrição do serviço"
-                                                rows={3}
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage className="text-danger small mt-1" />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                        <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Descrição</FormLabel>
+                                    <FormControl>
+                                        <Textarea
+                                            placeholder="Digite a descrição do serviço"
+                                            rows={3}
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-                        <div className="col-md-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
                                 name="price"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <label className="form-label">Preço</label>
+                                        <FormLabel>Preço</FormLabel>
                                         <FormControl>
-                                            <input
+                                            <Input
                                                 type="number"
                                                 step="0.01"
-                                                className="product-form-input w-100"
                                                 placeholder="R$ 0.00"
                                                 {...field}
                                             />
                                         </FormControl>
-                                        <FormMessage className="text-danger small mt-1" />
+                                        <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                        </div>
 
-                        <div className="col-md-6">
                             <FormField
                                 control={form.control}
                                 name="duration"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <label className="form-label">Duração (minutos)</label>
-                                        <FormControl>
-                                            <div className="input-group">
-                                                <input
+                                        <FormLabel>Duração (minutos)</FormLabel>
+                                        <div className="relative">
+                                            <FormControl>
+                                                <Input
                                                     type="number"
-                                                    className="product-form-input w-100"
                                                     placeholder="60"
                                                     min="5"
+                                                    className="pr-10"
                                                     {...field}
                                                 />
-                                                <span className="input-group-text">
-                                                    <Clock size={16} />
-                                                </span>
+                                            </FormControl>
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                <Clock size={16} className="text-muted-foreground" />
                                             </div>
-                                        </FormControl>
-                                        <FormMessage className="text-danger small mt-1" />
+                                        </div>
+                                        <FormMessage />
                                     </FormItem>
                                 )}
                             />
                         </div>
 
-                        <div className="col-md-6">
-                            <FormField
-                                control={form.control}
-                                name="category"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <label className="form-label">Categoria</label>
-                                        <FormControl>
-                                            <input
-                                                type="text"
-                                                className="product-form-input w-100"
-                                                placeholder="Digite a categoria"
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage className="text-danger small mt-1" />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                        <FormField
+                            control={form.control}
+                            name="category"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Categoria</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="Digite a categoria"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
-                        <div className="col-12 mt-4 d-flex justify-content-between">
-                            <button
-                                type="button"
-                                className="btn btn-outline-danger d-flex align-items-center gap-2"
-                                onClick={handleDelete}
-                                disabled={isDeleting}
-                            >
-                                {isDeleting ? (
-                                    <>
-                                        <Loader2 className="animate-spin" size={20} />
-                                        <span>Excluindo...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Trash2 size={18} />
-                                        <span>Excluir Serviço</span>
-                                    </>
-                                )}
-                            </button>
-
-                            <button
+                        <div className="pt-4">
+                            <Button
                                 type="submit"
-                                className="btn btn-primary d-flex align-items-center justify-content-center gap-2"
+                                className="w-full"
                                 disabled={isLoading}
                             >
                                 {isLoading ? (
                                     <>
-                                        <Loader2 className="animate-spin" size={20} />
-                                        <span>Atualizando...</span>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <span>Salvando...</span>
                                     </>
                                 ) : (
                                     "Salvar Alterações"
                                 )}
-                            </button>
+                            </Button>
                         </div>
                     </form>
                 </Form>
-            </div>
+            </Card>
         </div>
     );
 }

@@ -1,279 +1,318 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { Clock, Settings, Save, Plus, Trash2, AlertCircle, CheckCircle } from "lucide-react";
+import { Clock, Settings, Save, Plus, Trash2, Loader2, Check, AlertCircle } from "lucide-react";
+import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 
 // Interface para os horários de funcionamento
 interface BusinessHour {
-  day: string;
-  isOpen: boolean;
-  periods: {
-    start: string;
-    end: string;
-  }[];
+    day: string;
+    isOpen: boolean;
+    periods: {
+        start: string;
+        end: string;
+    }[];
 }
 
 const DAYS_OF_WEEK = [
-  { id: "monday", label: "Segunda-feira" },
-  { id: "tuesday", label: "Terça-feira" },
-  { id: "wednesday", label: "Quarta-feira" },
-  { id: "thursday", label: "Quinta-feira" },
-  { id: "friday", label: "Sexta-feira" },
-  { id: "saturday", label: "Sábado" },
-  { id: "sunday", label: "Domingo" },
+    { id: "monday", label: "Segunda-feira" },
+    { id: "tuesday", label: "Terça-feira" },
+    { id: "wednesday", label: "Quarta-feira" },
+    { id: "thursday", label: "Quinta-feira" },
+    { id: "friday", label: "Sexta-feira" },
+    { id: "saturday", label: "Sábado" },
+    { id: "sunday", label: "Domingo" },
 ];
 
 export default function AvailabilityPage() {
-  const [businessHours, setBusinessHours] = useState<BusinessHour[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error", text: string } | null>(null);
+    const [businessHours, setBusinessHours] = useState<BusinessHour[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedbackMessage, setFeedbackMessage] = useState<{ type: "success" | "error", text: string } | null>(null);
 
-  // Inicializa os horários de funcionamento
-  useEffect(() => {
-    // Simulação de carregamento de dados (substituir por chamada API real)
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Dados de exemplo (deve vir da API)
-        const mockData: BusinessHour[] = DAYS_OF_WEEK.map(day => ({
-          day: day.id,
-          isOpen: ["monday", "tuesday", "wednesday", "thursday", "friday"].includes(day.id),
-          periods: ["monday", "tuesday", "wednesday", "thursday", "friday"].includes(day.id)
-            ? [{ start: "09:00", end: "18:00" }]
-            : [],
-        }));
-        
-        setTimeout(() => {
-          setBusinessHours(mockData);
-          setIsLoading(false);
-        }, 1000);
-      } catch (error) {
-        console.error("Erro ao carregar horários:", error);
-        setIsLoading(false);
-      }
+    // Inicializa os horários de funcionamento
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setIsLoading(true);
+
+                // Dados de exemplo (deve vir da API)
+                const mockData: BusinessHour[] = DAYS_OF_WEEK.map(day => ({
+                    day: day.id,
+                    isOpen: ["monday", "tuesday", "wednesday", "thursday", "friday"].includes(day.id),
+                    periods: ["monday", "tuesday", "wednesday", "thursday", "friday"].includes(day.id)
+                        ? [{ start: "09:00", end: "18:00" }]
+                        : [],
+                }));
+
+                setTimeout(() => {
+                    setBusinessHours(mockData);
+                    setIsLoading(false);
+                }, 1000);
+            } catch (error) {
+                console.error("Erro ao carregar disponibilidade:", error);
+                setIsLoading(false);
+                setFeedbackMessage({
+                    type: "error",
+                    text: "Não foi possível carregar os dados de disponibilidade."
+                });
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    // Alternar dia aberto/fechado
+    const toggleDayOpen = (dayIndex: number) => {
+        setBusinessHours(prev => {
+            const newHours = [...prev];
+
+            // Se estiver alterando para aberto e não tiver períodos, adicione um período padrão
+            if (!newHours[dayIndex].isOpen && newHours[dayIndex].periods.length === 0) {
+                newHours[dayIndex] = {
+                    ...newHours[dayIndex],
+                    isOpen: true,
+                    periods: [{ start: "09:00", end: "18:00" }]
+                };
+            } else {
+                // Apenas inverte o estado
+                newHours[dayIndex] = {
+                    ...newHours[dayIndex],
+                    isOpen: !newHours[dayIndex].isOpen
+                };
+            }
+
+            return newHours;
+        });
     };
-    
-    fetchData();
-  }, []);
 
-  // Função para adicionar novo período em um dia
-  const addPeriod = (dayIndex: number) => {
-    const updatedHours = [...businessHours];
-    updatedHours[dayIndex].periods.push({ start: "09:00", end: "18:00" });
-    setBusinessHours(updatedHours);
-  };
+    // Adicionar novo período em um dia
+    const addPeriod = (dayIndex: number) => {
+        setBusinessHours(prev => {
+            const newHours = [...prev];
 
-  // Função para remover um período
-  const removePeriod = (dayIndex: number, periodIndex: number) => {
-    const updatedHours = [...businessHours];
-    updatedHours[dayIndex].periods.splice(periodIndex, 1);
-    setBusinessHours(updatedHours);
-  };
+            // Adicionar novo período com horário padrão
+            const existingPeriods = [...newHours[dayIndex].periods];
+            const lastPeriod = existingPeriods[existingPeriods.length - 1];
 
-  // Função para atualizar o status de um dia (aberto/fechado)
-  const toggleDayStatus = (dayIndex: number) => {
-    const updatedHours = [...businessHours];
-    updatedHours[dayIndex].isOpen = !updatedHours[dayIndex].isOpen;
-    
-    // Se estiver fechando o dia, limpa os períodos
-    if (!updatedHours[dayIndex].isOpen) {
-      updatedHours[dayIndex].periods = [];
-    } else if (updatedHours[dayIndex].periods.length === 0) {
-      // Se estiver abrindo o dia e não tem períodos, adiciona um padrão
-      updatedHours[dayIndex].periods = [{ start: "09:00", end: "18:00" }];
-    }
-    
-    setBusinessHours(updatedHours);
-  };
+            // Calcular horário para o próximo período
+            const newStart = lastPeriod?.end || "09:00";
+            let hour = parseInt(newStart.split(':')[0]);
+            let newEnd = (hour + 1) + ":00";
 
-  // Função para atualizar um horário específico
-  const updateTime = (dayIndex: number, periodIndex: number, field: "start" | "end", value: string) => {
-    const updatedHours = [...businessHours];
-    updatedHours[dayIndex].periods[periodIndex][field] = value;
-    setBusinessHours(updatedHours);
-  };
+            if (hour >= 23) newEnd = "23:59";
 
-  // Função para salvar os horários
-  const saveBusinessHours = async () => {
-    try {
-      setIsSaving(true);
-      setSaveMessage(null);
-      
-      // Simular requisição para salvar (substituir pelo endpoint real)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Simula sucesso
-      setSaveMessage({ type: "success", text: "Horários de funcionamento atualizados com sucesso!" });
-      
-      // Limpa a mensagem após alguns segundos
-      setTimeout(() => {
-        setSaveMessage(null);
-      }, 5000);
-    } catch (error) {
-      console.error("Erro ao salvar horários:", error);
-      setSaveMessage({ type: "error", text: "Erro ao salvar horários. Tente novamente." });
-    } finally {
-      setIsSaving(false);
-    }
-  };
+            existingPeriods.push({ start: newStart, end: newEnd });
 
-  if (isLoading) {
+            newHours[dayIndex] = {
+                ...newHours[dayIndex],
+                periods: existingPeriods
+            };
+
+            return newHours;
+        });
+    };
+
+    // Remover período
+    const removePeriod = (dayIndex: number, periodIndex: number) => {
+        setBusinessHours(prev => {
+            const newHours = [...prev];
+
+            const existingPeriods = [...newHours[dayIndex].periods];
+            existingPeriods.splice(periodIndex, 1);
+
+            newHours[dayIndex] = {
+                ...newHours[dayIndex],
+                periods: existingPeriods,
+                // Se não houver mais períodos, marcar como fechado
+                isOpen: existingPeriods.length > 0 ? newHours[dayIndex].isOpen : false
+            };
+
+            return newHours;
+        });
+    };
+
+    // Atualizar horário de início ou fim de um período
+    const updatePeriodTime = (dayIndex: number, periodIndex: number, field: 'start' | 'end', value: string) => {
+        setBusinessHours(prev => {
+            const newHours = [...prev];
+            const existingPeriods = [...newHours[dayIndex].periods];
+
+            existingPeriods[periodIndex] = {
+                ...existingPeriods[periodIndex],
+                [field]: value
+            };
+
+            newHours[dayIndex] = {
+                ...newHours[dayIndex],
+                periods: existingPeriods
+            };
+
+            return newHours;
+        });
+    };
+
+    // Salvar alterações
+    const saveChanges = async () => {
+        try {
+            setIsSaving(true);
+
+            // Simular chamada para API
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            console.log("Dados enviados:", businessHours);
+
+            setFeedbackMessage({
+                type: "success",
+                text: "Disponibilidade salva com sucesso!"
+            });
+
+            // Limpar mensagem após 3 segundos
+            setTimeout(() => {
+                setFeedbackMessage(null);
+            }, 3000);
+
+        } catch (error) {
+            console.error("Erro ao salvar disponibilidade:", error);
+            setFeedbackMessage({
+                type: "error",
+                text: "Erro ao salvar alterações."
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
-      <div className="container-fluid py-4">
-        <div className="card p-5 text-center">
-          <div className="spinner-border text-primary mb-3" role="status">
-            <span className="visually-hidden">Carregando...</span>
-          </div>
-          <p className="mb-0">Carregando horários de funcionamento...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="container-fluid py-4">
-      {saveMessage && (
-        <div className={`alert ${saveMessage.type === "success" ? "alert-success" : "alert-danger"} d-flex align-items-center`}>
-          {saveMessage.type === "success" ? (
-            <CheckCircle size={20} className="me-2" />
-          ) : (
-            <AlertCircle size={20} className="me-2" />
-          )}
-          {saveMessage.text}
-        </div>
-      )}
-      
-      <div className="card p-4">
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
-          <div>
-            <h1 className="h3 mb-1 fw-bold gradient-number">Horários de Disponibilidade</h1>
-            <p className="text-muted mb-0">Configure seus horários de atendimento</p>
-          </div>
-          <div className="d-flex gap-2">
-            <Link 
-              href="/availability/settings" 
-              className="btn btn-outline-primary d-flex align-items-center gap-2"
-            >
-              <Settings size={18} />
-              <span>Configurações Avançadas</span>
-            </Link>
-            <button 
-              className="btn btn-primary d-flex align-items-center gap-2"
-              onClick={saveBusinessHours}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <>
-                  <div className="spinner-border spinner-border-sm" role="status">
-                    <span className="visually-hidden">Salvando...</span>
-                  </div>
-                  <span>Salvando...</span>
-                </>
-              ) : (
-                <>
-                  <Save size={18} />
-                  <span>Salvar Horários</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-        
-        {/* Tabela de horários */}
-        <div className="table-responsive">
-          <table className="table table-hover">
-            <thead>
-              <tr>
-                <th style={{ width: "30%" }}>Dia da semana</th>
-                <th style={{ width: "15%" }}>Status</th>
-                <th>Horários</th>
-              </tr>
-            </thead>
-            <tbody>
-              {businessHours.map((dayHours, dayIndex) => (
-                <tr key={dayHours.day}>
-                  <td>
-                    <strong>{DAYS_OF_WEEK.find(d => d.id === dayHours.day)?.label}</strong>
-                  </td>
-                  <td>
-                    <div className="form-check form-switch">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id={`status-${dayHours.day}`}
-                        checked={dayHours.isOpen}
-                        onChange={() => toggleDayStatus(dayIndex)}
-                      />
-                      <label className="form-check-label" htmlFor={`status-${dayHours.day}`}>
-                        {dayHours.isOpen ? "Aberto" : "Fechado"}
-                      </label>
+        <DashboardLayout userName="Usuário">
+            <div className="space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold mb-1">Disponibilidade</h1>
+                        <p className="text-muted-foreground">
+                            Configure seus horários de atendimento
+                        </p>
                     </div>
-                  </td>
-                  <td>
-                    {dayHours.isOpen ? (
-                      <div>
-                        {dayHours.periods.map((period, periodIndex) => (
-                          <div key={periodIndex} className="mb-2 d-flex align-items-center gap-2">
-                            <div className="input-group" style={{ maxWidth: "300px" }}>
-                              <span className="input-group-text">
-                                <Clock size={16} />
-                              </span>
-                              <input
-                                type="time"
-                                className="form-control"
-                                value={period.start}
-                                onChange={(e) => updateTime(dayIndex, periodIndex, "start", e.target.value)}
-                              />
-                              <span className="input-group-text">até</span>
-                              <input
-                                type="time"
-                                className="form-control"
-                                value={period.end}
-                                onChange={(e) => updateTime(dayIndex, periodIndex, "end", e.target.value)}
-                              />
-                            </div>
-                            {dayHours.periods.length > 1 && (
-                              <button
-                                className="btn btn-outline-danger btn-sm"
-                                onClick={() => removePeriod(dayIndex, periodIndex)}
-                                title="Remover horário"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                        <button
-                          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 mt-2"
-                          onClick={() => addPeriod(dayIndex)}
+                    <div>
+                        <Button
+                            onClick={saveChanges}
+                            disabled={isLoading || isSaving}
+                            className="flex items-center gap-2"
                         >
-                          <Plus size={16} />
-                          <span>Adicionar horário</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-muted">Fechado</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        <div className="mt-4">
-          <div className="card-status-info p-3 rounded-3">
-            <h5 className="mb-2">Configurações de disponibilidade</h5>
-            <p className="mb-0">
-              Configure seus horários de funcionamento para que seus clientes possam agendar serviços apenas nos horários disponíveis.
-              Você pode adicionar múltiplos intervalos por dia, como manhã e tarde.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+                            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                            Salvar Alterações
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Mensagem de feedback */}
+                {feedbackMessage && (
+                    <div className={`p-4 mb-4 rounded-lg flex items-center gap-3 
+            ${feedbackMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'}`}>
+                        {feedbackMessage.type === 'success' ?
+                            <Check size={20} className="text-emerald-500" /> :
+                            <AlertCircle size={20} className="text-red-500" />
+                        }
+                        <span>{feedbackMessage.text}</span>
+                    </div>
+                )}
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Clock className="h-5 w-5" />
+                            Horários de Funcionamento
+                        </CardTitle>
+                        <CardDescription>
+                            Configure os dias e horários disponíveis para agendamento
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoading ? (
+                            <div className="flex justify-center py-8">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {businessHours.map((day, dayIndex) => (
+                                    <div key={day.day} className="border rounded-lg p-5">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4">
+                                            <div className="flex items-center gap-3 mb-2 sm:mb-0">
+                                                <Switch
+                                                    checked={day.isOpen}
+                                                    onCheckedChange={() => toggleDayOpen(dayIndex)}
+                                                />
+                                                <h3 className="text-lg font-medium">{DAYS_OF_WEEK.find(d => d.id === day.day)?.label}</h3>
+                                            </div>
+
+                                            <div>
+                                                {day.isOpen && (
+                                                    <Button
+                                                        onClick={() => addPeriod(dayIndex)}
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="flex items-center gap-1"
+                                                    >
+                                                        <Plus size={16} />
+                                                        Adicionar Horário
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {!day.isOpen ? (
+                                            <p className="text-muted-foreground text-sm">Fechado</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {day.periods.map((period, periodIndex) => (
+                                                    <div key={periodIndex} className="grid grid-cols-1 sm:grid-cols-8 gap-3 items-center">
+                                                        <div className="sm:col-span-3">
+                                                            <div className="flex items-center">
+                                                                <span className="text-sm font-medium w-14">Início:</span>
+                                                                <input
+                                                                    type="time"
+                                                                    value={period.start}
+                                                                    onChange={(e) => updatePeriodTime(dayIndex, periodIndex, 'start', e.target.value)}
+                                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="sm:col-span-3">
+                                                            <div className="flex items-center">
+                                                                <span className="text-sm font-medium w-14">Fim:</span>
+                                                                <input
+                                                                    type="time"
+                                                                    value={period.end}
+                                                                    onChange={(e) => updatePeriodTime(dayIndex, periodIndex, 'end', e.target.value)}
+                                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="sm:col-span-2 flex justify-end">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => removePeriod(dayIndex, periodIndex)}
+                                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        </DashboardLayout>
+    );
 }

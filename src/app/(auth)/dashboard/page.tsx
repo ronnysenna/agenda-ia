@@ -1,73 +1,68 @@
 import { getProtectedSession } from "@/lib/get-protected-session";
+import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { DashboardCard } from "@/components/ui/dashboard-card";
 import {
   CalendarCheck,
   CheckCircle,
-  Clock,
   QrCode,
   Users,
   Calendar,
-  BadgeX,
-  Repeat
+  LineChart,
+  CreditCard,
+  ArrowUpRight
 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function Dashboard() {
   const session = await getProtectedSession();
 
   return (
-    <div className="container-fluid py-4">
-      {/* Cabeçalho */}
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4 p-3 bg-white rounded-4 shadow-sm">
+    <DashboardLayout userName={session.user.name || "Usuário"}>
+      {/* Título da página */}
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="h3 mb-1 fw-bold gradient-number">Dashboard</h1>
-          <p className="text-muted mb-0">
+          <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
+          <p className="text-muted-foreground">
             Visualize métricas de agendamentos em tempo real
           </p>
-        </div>
-        <div className="d-flex align-items-center gap-3">
-          <div className="text-end">
-            <p className="text-muted mb-1 small">Bem-vindo de volta</p>
-            <p className="mb-0 fw-semibold">{session.user.name}</p>
-          </div>
-          <div className="icon-glass p-2 rounded-circle">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-primary"
-            >
-              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-          </div>
         </div>
       </div>
 
       {/* Cards de Resumo */}
-      <div className="row g-4 mb-4">
-        <div className="col-12 col-md-6 col-lg-3">
-          <div className="card h-100 card-status-primary">
-            <div className="card-body">
-              <div className="d-flex align-items-center mb-3">
-                <div className="icon-glass p-3 rounded-4 me-3">
-                  <CalendarCheck className="text-primary" size={24} />
-                </div>
-                <h6 className="card-title text-primary mb-0 fw-semibold">
-                  Total de Agendamentos
-                </h6>
-              </div>
-              <h3 className="mb-0 gradient-number display-6">42</h3>
-              <small className="text-muted fw-medium">
-                Nos últimos 30 dias
-              </small>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <DashboardCard
+          title="Total de Agendamentos"
+          value="42"
+          icon={<CalendarCheck size={18} />}
+          trend={{ value: 12, isPositive: true }}
+          description="Nos últimos 30 dias"
+          variant="primary"
+        />
+
+        <DashboardCard
+          title="Taxa de Comparecimento"
+          value="87%"
+          icon={<CheckCircle size={18} />}
+          trend={{ value: 4, isPositive: true }}
+          description="Clientes presentes"
+          variant="success"
+        />
+
+        <DashboardCard
+          title="Conexões WhatsApp"
+          value="1"
+          icon={<QrCode size={18} />}
+          description="Dispositivos conectados"
+          variant="primary"
+        />
+
+        <DashboardCard
+          title="Novos Clientes"
+          value="18"
+          icon={<Users size={18} />}
+          trend={{ value: 7, isPositive: true }}
+          description="Mês atual"
+        />
 
         <div className="col-12 col-md-6 col-lg-3">
           <div className="card h-100 card-status-success">
@@ -123,221 +118,140 @@ export default async function Dashboard() {
         </div>
       </div>
 
-      {/* Gráficos e métricas de agendamento */}
-      <div className="row g-4">
-        <div className="col-12 col-lg-8">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center mb-4">
-                <h5 className="card-title mb-0 fw-bold">
-                  Agendamentos por Período
-                </h5>
-                <select className="select-modern">
-                  <option>Últimos 30 dias</option>
-                  <option>Últimos 90 dias</option>
-                  <option>Este ano</option>
-                </select>
-              </div>
-              <div className="chart-placeholder">
-                <div className="text-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mb-3 text-primary"
-                  >
-                    <path d="M3 3v18h18" />
-                    <path d="m19 9-5 5-4-4-3 3" />
-                  </svg>
-                  <p className="text-muted mb-0 fw-medium">
-                    Gráfico de agendamentos será implementado aqui
-                  </p>
-                </div>
+      {/* Gráficos e Estatísticas */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg font-medium">Agendamentos dos Últimos 7 Dias</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 rounded-md">
+              <div className="text-center flex flex-col items-center">
+                <LineChart className="h-10 w-10 text-gray-400 mb-2" />
+                <p className="text-sm text-muted-foreground">Gráfico de agendamentos será exibido aqui</p>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="col-12 col-lg-4">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center mb-4">
-                <h5 className="card-title mb-0 fw-bold">
-                  Serviços Mais Agendados
-                </h5>
-                <select className="select-modern">
-                  <option>Top 5</option>
-                  <option>Top 10</option>
-                  <option>Todos</option>
-                </select>
-              </div>
-              <div className="chart-placeholder">
-                <div className="text-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mb-3 text-primary"
-                  >
-                    <path d="M3 3v18h18" />
-                    <path d="m3 15 4-4 4 4 4-4 4 4" />
-                  </svg>
-                  <p className="text-muted mb-0 fw-medium">
-                    Gráfico de serviços será implementado aqui
-                  </p>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-medium">Próximos Agendamentos</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[
+              { id: "appt-1", name: "João Silva", service: "Corte de cabelo", time: "Hoje, 14:30" },
+              { id: "appt-2", name: "Maria Oliveira", service: "Manicure", time: "Hoje, 15:00" },
+              { id: "appt-3", name: "Carlos Santos", service: "Barba", time: "Hoje, 16:15" }
+            ].map((appt) => (
+              <div key={appt.id} className="flex items-start gap-3 p-3 border rounded-lg">
+                <div className="bg-primary/10 p-2 rounded-full">
+                  <Calendar className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">{appt.name}</p>
+                  <p className="text-sm text-muted-foreground">{appt.service}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{appt.time}</p>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Métricas adicionais */}
-      <div className="row g-4 mt-2">
-        <div className="col-12 col-lg-4">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center mb-3">
-                <div className="icon-glass p-3 rounded-4 me-3">
-                  <Clock className="text-primary" size={20} />
+      {/* Estatísticas adicionais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-medium">Status dos Agendamentos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                  <span className="text-sm">Confirmados</span>
                 </div>
-                <h6 className="card-title mb-0 fw-semibold">Taxa de Ocupação</h6>
+                <span className="font-medium">24</span>
               </div>
-              <div className="progress mb-3" style={{ height: "10px" }}>
-                <div
-                  className="progress-bar bg-primary"
-                  role="progressbar"
-                  style={{ width: "65%" }}
-                  aria-valuenow={65}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                ></div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
+                  <span className="text-sm">Pendentes</span>
+                </div>
+                <span className="font-medium">12</span>
               </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="small text-muted">Horários ocupados</span>
-                <span className="fw-medium gradient-number">65%</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                  <span className="text-sm">Cancelados</span>
+                </div>
+                <span className="font-medium">6</span>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="col-12 col-lg-4">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center mb-3">
-                <div className="icon-glass p-3 rounded-4 me-3">
-                  <BadgeX className="text-danger" size={20} />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-medium">Serviços Mais Populares</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs text-primary font-bold">1</span>
+                  <span className="text-sm">Corte de Cabelo</span>
                 </div>
-                <h6 className="card-title mb-0 fw-semibold">Taxa de Cancelamento</h6>
+                <span className="font-medium">18</span>
               </div>
-              <div className="progress mb-3" style={{ height: "10px" }}>
-                <div
-                  className="progress-bar bg-danger"
-                  role="progressbar"
-                  style={{ width: "12%" }}
-                  aria-valuenow={12}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                ></div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs text-primary font-bold">2</span>
+                  <span className="text-sm">Barba</span>
+                </div>
+                <span className="font-medium">14</span>
               </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="small text-muted">Agendamentos cancelados</span>
-                <span className="fw-medium text-danger">12%</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs text-primary font-bold">3</span>
+                  <span className="text-sm">Hidratação</span>
+                </div>
+                <span className="font-medium">10</span>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="col-12 col-lg-4">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center mb-3">
-                <div className="icon-glass p-3 rounded-4 me-3">
-                  <Repeat className="text-success" size={20} />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-medium">Faturamento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-green-500/10 p-2 rounded-full">
+                  <CreditCard className="h-5 w-5 text-green-500" />
                 </div>
-                <h6 className="card-title mb-0 fw-semibold">Taxa de Retorno</h6>
+                <div>
+                  <p className="text-2xl font-bold">R$ 3.240</p>
+                  <p className="text-xs text-muted-foreground">Mês atual</p>
+                </div>
               </div>
-              <div className="progress mb-3" style={{ height: "10px" }}>
-                <div
-                  className="progress-bar bg-success"
-                  role="progressbar"
-                  style={{ width: "58%" }}
-                  aria-valuenow={58}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                ></div>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="small text-muted">Clientes recorrentes</span>
-                <span className="fw-medium text-success">58%</span>
+
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 flex justify-between items-center">
+                <span className="text-sm">Mês anterior</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium">R$ 2.980</span>
+                  <span className="text-xs text-green-600 flex items-center">
+                    <ArrowUpRight className="h-3 w-3" /> 8.7%
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Próximos agendamentos */}
-      <div className="card mt-4">
-        <div className="card-body">
-          <h5 className="card-title mb-4 fw-bold">Próximos Agendamentos</h5>
-
-          <div className="table-responsive">
-            <table className="table table-hover">
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th>Serviço</th>
-                  <th>Data</th>
-                  <th>Hora</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>João Silva</td>
-                  <td>Corte de Cabelo</td>
-                  <td>09/08/2025</td>
-                  <td>10:00</td>
-                  <td><span className="badge bg-primary">Agendado</span></td>
-                </tr>
-                <tr>
-                  <td>Maria Oliveira</td>
-                  <td>Manicure e Pedicure</td>
-                  <td>09/08/2025</td>
-                  <td>14:30</td>
-                  <td><span className="badge bg-success">Confirmado</span></td>
-                </tr>
-                <tr>
-                  <td>Carlos Mendes</td>
-                  <td>Barba</td>
-                  <td>10/08/2025</td>
-                  <td>11:15</td>
-                  <td><span className="badge bg-warning">Pendente</span></td>
-                </tr>
-                <tr>
-                  <td>Ana Sousa</td>
-                  <td>Hidratação</td>
-                  <td>10/08/2025</td>
-                  <td>15:00</td>
-                  <td><span className="badge bg-primary">Agendado</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
+    </DashboardLayout>
   );
 }
