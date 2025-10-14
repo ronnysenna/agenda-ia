@@ -104,6 +104,12 @@ RUN ls -la /app && \
     echo "Node version: $(node -v)" && \
     echo "NPM version: $(npm -v)"
 
+# Verificar se o build existe antes de configurar usuários
+RUN echo "Verificando se o build de produção está presente:" && \
+    ls -la /app/.next/ && \
+    test -f /app/.next/BUILD_ID || (echo "BUILD_ID não encontrado!" && exit 1) && \
+    echo "Build de produção confirmado!"
+
 # Configurar usuário não-root para segurança
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs && \
@@ -118,11 +124,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:3000/api/version || wget -q --spider http://localhost:3000/api/version || exit 1
 
-# Verificar se o build existe antes de iniciar
-RUN echo "Verificando se o build de produção está presente:" && \
-    ls -la /app/.next/ && \
-    test -f /app/.next/BUILD_ID || (echo "BUILD_ID não encontrado!" && exit 1) && \
-    echo "Build de produção confirmado!"
-
-# Comando para iniciar o aplicativo
-CMD ["npm", "start"]
+# Comando para iniciar o aplicativo com verificação de build
+CMD ["sh", "-c", "if [ ! -d '/app/.next' ] || [ ! -f '/app/.next/BUILD_ID' ]; then echo 'ERROR: Build de produção não encontrado. Verifique se o build foi executado corretamente.'; ls -la /app/.next/; exit 1; fi && npm start"]
