@@ -109,12 +109,16 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 USER nextjs
 
+# Copiar scripts de diagnóstico
+COPY scripts/diagnostico.sh /app/scripts/
+RUN chmod +x /app/scripts/diagnostico.sh
+
 # Expor a porta do servidor
 EXPOSE 3000
 
-# Healthcheck mais robusto
-HEALTHCHECK --interval=30s --timeout=30s --start-period=30s --retries=3 \
-    CMD wget -q --spider http://localhost:3000/ || exit 1
+# Healthcheck mais simples e confiável
+HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3000/api/version || wget -q --spider http://localhost:3000/api/version || exit 1
 
 # Comando para iniciar o aplicativo
 CMD ["npm", "start"]
