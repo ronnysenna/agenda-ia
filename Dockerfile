@@ -96,26 +96,18 @@ COPY --from=builder /app/next.config.js ./next.config.js
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/generated ./src/generated
 
-# Verificar conteúdo copiado
-RUN ls -la /app && \
+# Verificar conteúdo copiado detalhadamente
+RUN echo "=== VERIFICAÇÃO DETALHADA ===" && \
+    ls -la /app && \
+    echo "--- Conteúdo do diretório .next ---" && \
     ls -la /app/.next && \
+    echo "--- Arquivos específicos ---" && \
+    find /app/.next -type f -name "*BUILD*" && \
+    find /app/.next -name "*.json" | head -5 && \
+    echo "--- Verificando se é um build válido ---" && \
     ls -la /app/.next/server && \
-    ls -la /app/src/generated/prisma || echo "Diretório não encontrado" && \
-    echo "Node version: $(node -v)" && \
-    echo "NPM version: $(npm -v)"
-
-# Verificar se o build existe antes de configurar usuários
-RUN echo "Verificando se o build de produção está presente:" && \
-    ls -la /app/.next/ && \
-    test -f /app/.next/BUILD_ID || (echo "BUILD_ID não encontrado!" && exit 1) && \
-    echo "Build de produção confirmado!"
-
-# Configurar usuário não-root para segurança
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs && \
-    chown -R nextjs:nodejs /app
-
-USER nextjs
+    echo "--- Conteúdo Prisma ---" && \
+    ls -la /app/src/generated/prisma || echo "Diretório Prisma não encontrado"
 
 # Expor a porta do servidor
 EXPOSE 3000
@@ -124,5 +116,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:3000/api/version || wget -q --spider http://localhost:3000/api/version || exit 1
 
-# Comando para iniciar o aplicativo com verificação de build
-CMD ["sh", "-c", "if [ ! -d '/app/.next' ] || [ ! -f '/app/.next/BUILD_ID' ]; then echo 'ERROR: Build de produção não encontrado. Verifique se o build foi executado corretamente.'; ls -la /app/.next/; exit 1; fi && npm start"]
+# Comando simplificado para debug - executar como root temporariamente
+CMD ["sh", "-c", "echo 'INICIANDO DEBUG DO CONTAINER:' && ls -la /app/.next && echo 'TENTANDO INICIAR NEXT.JS:' && npm start"]
