@@ -1,53 +1,37 @@
-# Dockerfile simplificado para Next.js com Tailwind e Prisma
+# Dockerfile otimizado para Next.js com Prisma
 FROM node:20.11-alpine AS base
 
 # Configurações gerais
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Instalação de dependências
+# Fase de instalação de dependências
 FROM base AS deps
 WORKDIR /app
 
-# Copia arquivos de configuração para instalação eficiente das dependências
-COPY package.json yarn.lock* package-lock.json* ./
-COPY prisma ./prisma/
+# Copia arquivos de configuração
+COPY package.json package-lock.json* ./
 
-# Instala todas as dependências
-RUN yarn install || \
-    npm install
+# Instala as dependências
+RUN npm ci
 
-# Gera o Prisma Client (com configurações para evitar problemas com WASM em Docker)
-ENV NODE_ENV=production
-ENV PRISMA_CLIENT_ENGINE_TYPE=binary
-RUN npx prisma generate
-
-# Etapa de build
+# Fase de compilação
 FROM base AS builder
 WORKDIR /app
 
-# Configurações para evitar problemas com o Prisma
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-
-# Copia as dependências da etapa anterior
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/src/generated ./src/generated
-
-# Copia todo o código fonte
-COPY . .
-
-# Cria os arquivos de configuração para o Tailwind
-RUN echo 'module.exports = { plugins: { "tailwindcss": {}, autoprefixer: {} } }' > postcss.config.js
+# Configurações específicas do Prisma para contêiner
+ENV PRISMA_CLIENT_ENGINE_TYPE=binary
 
 # Cria o build ID
 RUN echo "build-$(date +%s)" > /tmp/build_id
 
-# Configura URL de produção se necessário
-RUN if [ "$NODE_ENV" = "production" ]; then \
-    sed -i 's|NEXT_PUBLIC_APP_URL=http://localhost:3000|NEXT_PUBLIC_APP_URL=https://agenda-ai.ronnysenna.com.br|g' .env || echo "No .env file found"; \
-    fi
+# Copia dependências da fase anterior
+COPY --from=deps /app/node_modules ./node_modules
 
-# Adiciona o build ID ao arquivo .env
+# Copia todo o código fonte
+COPY . .
+
+# Adiciona o build ID ao arquivo .env se necessário
 RUN if [ -f .env ]; then \
     echo "NEXT_PUBLIC_BUILD_ID=$(cat /tmp/build_id)" >> .env; \
     else \
@@ -55,8 +39,15 @@ RUN if [ -f .env ]; then \
     echo "NEXT_PUBLIC_BUILD_ID=$(cat /tmp/build_id)" >> .env; \
     fi
 
+# Gera o Prisma Client com configurações otimizadas
+RUN NODE_ENV=production npx prisma generate --schema=./prisma/schema.prisma
+
+# Cria o arquivo wasm-engine-edge.js se ele não existir (hack para evitar o erro)
+RUN mkdir -p /app/node_modules/@prisma/client/runtime && \
+    touch /app/node_modules/@prisma/client/runtime/wasm-engine-edge.js
+
 # Build do Next.js
-RUN yarn build || npm run build
+RUN npm run build
 
 # Etapa de execução
 FROM base AS runner
@@ -66,22 +57,25 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# Define diretório para armazenamento
-VOLUME /app/.next/cache
+# Configura permissões adequadas
+RUN mkdir -p /app/.next && chown -R nextjs:nodejs /app
 
 # Copia os arquivos necessários para execução
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/.env* ./
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/src/generated ./src/generated
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/.env* ./
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/src/generated ./src/generated
 
-# Instala apenas as dependências de produção
-RUN yarn install --frozen-lockfile --production || \
-    npm ci --only=production
+# Define o usuário não-root
+USER nextjs
 
-# Configura o ambiente para produção
+# Define as variáveis de ambiente para produção
+ENV PORT=3000
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV NODE_ENV=production
 ENV HOSTNAME="0.0.0.0"
