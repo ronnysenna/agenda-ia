@@ -79,8 +79,6 @@ RUN echo "DATABASE_URL=${DATABASE_URL}" > .env && \
 
 # Gerar Prisma Client
 RUN npx prisma generate
-# Gerar binário correto para Alpine
-RUN npx prisma generate --binary-targets=linux-musl-openssl-3.0.x
 
 # Build Next.js com log detalhado
 RUN npm run build > build.log 2>&1 || (cat build.log && exit 1)
