@@ -32,8 +32,37 @@ RUN touch /app/node_modules/@prisma/client/runtime/wasm-compiler-edge.js
 # Copiar o resto do código
 COPY . .
 
-# Copiar o arquivo .env.docker para .env para o build
-COPY .env.docker .env
+# Definir argumentos para variáveis de ambiente
+ARG DATABASE_URL
+ARG NEXTAUTH_URL
+ARG NEXTAUTH_SECRET
+ARG CLOUDINARY_CLOUD_NAME
+ARG CLOUDINARY_API_KEY
+ARG CLOUDINARY_API_SECRET
+ARG EMAIL_SERVER_HOST
+ARG EMAIL_SERVER_PORT
+ARG EMAIL_SERVER_USER
+ARG EMAIL_SERVER_PASSWORD
+ARG EMAIL_FROM
+ARG NODE_ENV
+ARG TRUSTED_ORIGINS
+
+# Criar arquivo .env dinamicamente com os argumentos recebidos
+RUN echo "# Arquivo .env gerado automaticamente durante o build" > .env && \
+    echo "DATABASE_URL=\"${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/agendaai}\"" >> .env && \
+    echo "NEXTAUTH_URL=\"${NEXTAUTH_URL:-http://localhost:3000}\"" >> .env && \
+    echo "NEXTAUTH_SECRET=\"${NEXTAUTH_SECRET:-build-secret-not-for-production}\"" >> .env && \
+    echo "CLOUDINARY_CLOUD_NAME=\"${CLOUDINARY_CLOUD_NAME:-build-cloud}\"" >> .env && \
+    echo "CLOUDINARY_API_KEY=\"${CLOUDINARY_API_KEY:-build-key}\"" >> .env && \
+    echo "CLOUDINARY_API_SECRET=\"${CLOUDINARY_API_SECRET:-build-secret}\"" >> .env && \
+    echo "EMAIL_SERVER_HOST=\"${EMAIL_SERVER_HOST:-smtp.example.com}\"" >> .env && \
+    echo "EMAIL_SERVER_PORT=\"${EMAIL_SERVER_PORT:-587}\"" >> .env && \
+    echo "EMAIL_SERVER_USER=\"${EMAIL_SERVER_USER:-user@example.com}\"" >> .env && \
+    echo "EMAIL_SERVER_PASSWORD=\"${EMAIL_SERVER_PASSWORD:-build-password}\"" >> .env && \
+    echo "EMAIL_FROM=\"${EMAIL_FROM:-noreply@example.com}\"" >> .env && \
+    echo "NODE_ENV=\"${NODE_ENV:-production}\"" >> .env && \
+    echo "TRUSTED_ORIGINS=\"${TRUSTED_ORIGINS:-https://vendamais-front.dgohio.easypanel.host,http://localhost:3000}\"" >> .env && \
+    cat .env
 
 # Gerar cliente Prisma com suporte explícito para debian-openssl-3.0.x
 RUN npx prisma generate --schema=./prisma/schema.prisma || (echo "Prisma generate failed, retrying with manual path creation" && mkdir -p /app/src/generated/prisma && npx prisma generate --schema=./prisma/schema.prisma)

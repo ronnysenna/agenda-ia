@@ -15,13 +15,13 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Arquivos de ambiente (exceto .env.docker que é usado no build)
+# Arquivos de ambiente
 .env
 .env.local
 .env.development
 .env.test
-# Não ignorar .env.docker e .env.production
-!.env.docker
+.env.docker
+# Não ignorar .env.production que pode conter configurações não-sensíveis
 !.env.production
 
 # Arquivos de teste
