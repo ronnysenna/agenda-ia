@@ -28,4 +28,5 @@ O AgendaAI é uma plataforma web para gerenciar agendamentos, serviços, horári
 1. Clone o repositório:
 
    ```bash  git clone https://github.com/ronnysenna/agenda-ia.git
+
   cd agenda-ia
