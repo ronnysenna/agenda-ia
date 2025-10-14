@@ -53,18 +53,30 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
 # Gerar cliente Prisma
-RUN npx prisma generate
+RUN echo "=== GERANDO PRISMA CLIENT ===" && \
+    npx prisma generate && \
+    echo "=== PRISMA CLIENT GERADO COM SUCESSO ==="
 
-# Fazer o build do Next.js
-RUN npm run build
+# Verificar antes do build
+RUN echo "=== ANTES DO BUILD ===" && \
+    ls -la . && \
+    echo "=== VERIFICANDO PACKAGE.JSON ===" && \
+    cat package.json | grep -A 5 -B 5 '"build"'
+
+# Fazer o build do Next.js com logs detalhados
+RUN echo "=== INICIANDO BUILD DO NEXT.JS ===" && \
+    npm run build 2>&1 | tee build.log && \
+    echo "=== BUILD CONCLUÍDO ==="
 
 # Verificar se o build foi criado
-RUN echo "=== VERIFICANDO BUILD ===" && \
-    ls -la .next && \
-    echo "=== ARQUIVOS BUILD_ID ===" && \
-    find .next -name "*BUILD*" -type f && \
-    echo "=== CONTEÚDO BUILD_ID ===" && \
-    cat .next/BUILD_ID 2>/dev/null || echo "BUILD_ID não encontrado" && \
+RUN echo "=== VERIFICANDO BUILD APÓS NPM RUN BUILD ===" && \
+    ls -la . && \
+    echo "=== DIRETÓRIO .NEXT ===" && \
+    ls -la .next 2>/dev/null || echo "DIRETÓRIO .NEXT NÃO EXISTE!" && \
+    echo "=== PROCURANDO BUILD_ID ===" && \
+    find . -name "*BUILD*" -type f 2>/dev/null || echo "NENHUM ARQUIVO BUILD_ID ENCONTRADO" && \
+    echo "=== LOGS DO BUILD ===" && \
+    cat build.log | tail -20 && \
     echo "=== VERIFICAÇÃO CONCLUÍDA ==="
 
 # Expor porta
@@ -74,5 +86,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:3000/api/version || exit 1
 
-# Iniciar aplicação com debug
-CMD ["sh", "-c", "echo 'INICIANDO APLICAÇÃO:' && ls -la .next && npm start"]
+# Iniciar aplicação com debug completo
+CMD ["sh", "-c", "echo '=== DEBUG NO MOMENTO DA EXECUÇÃO ===' && pwd && ls -la . && echo '=== CONTEÚDO .NEXT ===' && ls -la .next 2>/dev/null || echo 'DIRETÓRIO .NEXT NÃO EXISTE' && echo '=== PROCURANDO BUILD_ID ===' && find . -name '*BUILD*' 2>/dev/null || echo 'BUILD_ID NÃO ENCONTRADO' && echo '=== TENTANDO INICIAR NEXT.JS ===' && npm start"]
