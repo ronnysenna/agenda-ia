@@ -98,6 +98,8 @@ COPY --from=builder /app/src/generated ./src/generated
 
 # Verificar conteúdo copiado
 RUN ls -la /app && \
+    ls -la /app/.next && \
+    ls -la /app/.next/server && \
     ls -la /app/src/generated/prisma || echo "Diretório não encontrado" && \
     echo "Node version: $(node -v)" && \
     echo "NPM version: $(npm -v)"
@@ -115,6 +117,12 @@ EXPOSE 3000
 # Healthcheck mais simples e confiável
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:3000/api/version || wget -q --spider http://localhost:3000/api/version || exit 1
+
+# Verificar se o build existe antes de iniciar
+RUN echo "Verificando se o build de produção está presente:" && \
+    ls -la /app/.next/ && \
+    test -f /app/.next/BUILD_ID || (echo "BUILD_ID não encontrado!" && exit 1) && \
+    echo "Build de produção confirmado!"
 
 # Comando para iniciar o aplicativo
 CMD ["npm", "start"]
