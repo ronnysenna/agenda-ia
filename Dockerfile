@@ -126,7 +126,7 @@ EXPOSE 80
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=15s --start-period=45s --retries=3 \
-    CMD curl -f http://localhost:3000/api/version || exit 1
+    CMD curl -f http://localhost:80/api/version || exit 1
 
 # Inicializar aplicação
 CMD ["npm", "start"]
