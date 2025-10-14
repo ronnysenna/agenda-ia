@@ -11,7 +11,7 @@ dist
 
 # Arquivos gerados pelo Prisma
 prisma/.env
-src/generated
+# Não ignorar src/generated - necessário para o build
 
 # Arquivos de ambiente local
 .env*.local
@@ -46,8 +46,7 @@ __mocks__
 *.test.*
 *.spec.*
 
-# Arquivos de Docker
-Dockerfile*
+# Arquivos de Docker (manter o Dockerfile principal)
 .dockerignore
 docker-compose*
 
