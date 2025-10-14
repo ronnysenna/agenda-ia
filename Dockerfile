@@ -79,6 +79,8 @@ RUN echo "DATABASE_URL=${DATABASE_URL}" > .env && \
 
 # Gerar Prisma Client
 RUN npx prisma generate
+# Gerar binário correto para Alpine
+RUN npx prisma generate --binary-targets=linux-musl-openssl-3.0.x
 
 # Build Next.js com log detalhado
 RUN npm run build > build.log 2>&1 || (cat build.log && exit 1)
@@ -110,6 +112,7 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/.prisma ./.prisma
 
 # Criar usuário não-root para segurança
 RUN addgroup -g 1001 -S nodejs && \
