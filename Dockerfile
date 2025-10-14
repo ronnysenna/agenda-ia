@@ -1,16 +1,46 @@
-# Dockerfile otimizado para produção no EasyPanel
-FROM node:20-alpine AS base
+# Multi-stage build para otimizar tamanho final
+FROM node:20-alpine AS dependencies
 
-# Instalar dependências do sistema necessárias
-RUN apk add --no-cache libc6-compat curl wget bash openssl ca-certificates
-
-# Definir variáveis de ambiente para produção
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PRISMA_CLIENT_ENGINE_TYPE=binary
-ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x
+# Instalar dependências de sistema necessárias
+RUN apk add --no-cache \
+    libc6-compat \
+    openssl \
+    ca-certificates
 
 WORKDIR /app
+
+# Copiar package files
+COPY package*.json ./
+
+# Instalar dependências
+RUN npm ci --frozen-lockfile
+
+# Stage 2: Build
+FROM node:20-alpine AS builder
+
+# Instalar dependências de build
+RUN apk add --no-cache \
+    libc6-compat \
+    openssl \
+    ca-certificates \
+    python3 \
+    make \
+    g++
+
+# Configurar Prisma para Alpine
+ENV PRISMA_CLIENT_ENGINE_TYPE=binary
+ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x
+ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+
+WORKDIR /app
+
+# Copiar dependências do stage anterior
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY package*.json ./
+
+# Copiar código fonte e schema
+COPY prisma ./prisma/
+COPY . .
 
 # Argumentos do EasyPanel com valores padrão seguros
 ARG DATABASE_URL
@@ -26,66 +56,77 @@ ARG EMAIL_SERVER_PASSWORD
 ARG EMAIL_FROM
 ARG TRUSTED_ORIGINS
 
-# Copiar arquivos de dependências
-COPY package*.json ./
+# Argumentos de build do EasyPanel
+ARG DATABASE_URL
+ARG NEXTAUTH_URL
+ARG NEXTAUTH_SECRET
+ARG CLOUDINARY_CLOUD_NAME
+ARG CLOUDINARY_API_KEY
+ARG CLOUDINARY_API_SECRET
+ARG EMAIL_SERVER_HOST
+ARG EMAIL_SERVER_PORT
+ARG EMAIL_SERVER_USER
+ARG EMAIL_SERVER_PASSWORD
+ARG EMAIL_FROM
+ARG TRUSTED_ORIGINS
 
-# Instalar dependências com cache otimizado
-RUN npm ci --only=production --no-audit --no-fund && \
-    npm cache clean --force
-
-# Copiar schema do Prisma
-COPY prisma ./prisma/
-
-# Gerar cliente Prisma com configurações específicas para Alpine
-RUN npx prisma generate
-
-# Copiar código fonte
-COPY . .
-
-# Criar arquivo .env para build time
+# Criar .env para build
 RUN echo "DATABASE_URL=${DATABASE_URL}" > .env && \
     echo "NEXTAUTH_URL=${NEXTAUTH_URL}" >> .env && \
     echo "NEXTAUTH_SECRET=${NEXTAUTH_SECRET}" >> .env && \
     echo "NODE_ENV=production" >> .env && \
-    echo "TRUSTED_ORIGINS=${TRUSTED_ORIGINS}" >> .env && \
-    echo "CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}" >> .env && \
-    echo "CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}" >> .env && \
-    echo "CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}" >> .env
+    echo "TRUSTED_ORIGINS=${TRUSTED_ORIGINS}" >> .env
 
-# Build da aplicação Next.js
+# Gerar Prisma Client
+RUN npx prisma generate
+
+# Build Next.js
 RUN npm run build
 
-# Verificar se o build foi criado corretamente
-RUN ls -la .next && \
-    test -f .next/BUILD_ID && \
-    echo "✅ Build ID: $(cat .next/BUILD_ID)" && \
-    echo "✅ Next.js build concluído com sucesso!" && \
-    echo "✅ Prisma Client gerado para: linux-musl-openssl-3.0.x"
+# Verificar build
+RUN ls -la .next && test -f .next/BUILD_ID && echo "✅ BUILD_ID: $(cat .next/BUILD_ID)"
 
-# Remover arquivos de desenvolvimento desnecessários
-RUN rm -rf .env && \
-    rm -rf node_modules/.cache && \
-    rm -rf /tmp/* && \
-    rm -rf /root/.npm
+# Stage 3: Runtime
+FROM node:20-alpine AS runtime
 
-# Configurar usuário não-root para segurança
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001 && \
-    chown -R nextjs:nodejs /app && \
-    chown -R nextjs:nodejs /app/.next
+# Instalar apenas dependências runtime
+RUN apk add --no-cache \
+    libc6-compat \
+    curl \
+    openssl \
+    ca-certificates
 
-USER nextjs
-
-# Expor porta padrão do Next.js
-EXPOSE 3000
-
-# Configurar variáveis de ambiente runtime
+# Configurar ambiente de produção
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Healthcheck aprimorado
+WORKDIR /app
+
+# Copiar arquivos necessários do builder
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/prisma ./prisma
+
+# Criar usuário não-root para segurança
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 && \
+    chown -R nextjs:nodejs /app
+
+# Verificar se o build foi copiado corretamente
+RUN test -f .next/BUILD_ID && echo "✅ Runtime ready - BUILD_ID: $(cat .next/BUILD_ID)"
+
+USER nextjs
+
+# Expor porta
+EXPOSE 3000
+
+# Healthcheck
 HEALTHCHECK --interval=30s --timeout=15s --start-period=45s --retries=3 \
     CMD curl -f http://localhost:3000/api/version || exit 1
 
-# Comando de inicialização otimizado
+# Inicializar aplicação
 CMD ["npm", "start"]
