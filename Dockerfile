@@ -99,7 +99,7 @@ RUN apk add --no-cache \
 # Configurar ambiente de produção
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
+ENV PORT=80
 ENV HOSTNAME="0.0.0.0"
 
 WORKDIR /app
@@ -122,7 +122,7 @@ RUN test -f .next/BUILD_ID && echo "✅ Runtime ready - BUILD_ID: $(cat .next/BU
 USER nextjs
 
 # Expor porta
-EXPOSE 3000
+EXPOSE 80
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=15s --start-period=45s --retries=3 \
