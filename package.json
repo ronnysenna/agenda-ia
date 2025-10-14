@@ -9,7 +9,7 @@
     "start": "NODE_ENV=production next start",
     "start:with-env": "NODE_ENV=production dotenv -e .env -- next start",
     "lint": "next lint",
-    "generate": "prisma generate",
+    "generate": "prisma generate --no-engine",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",

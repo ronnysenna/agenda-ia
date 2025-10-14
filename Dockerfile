@@ -17,12 +17,17 @@ COPY prisma ./prisma/
 RUN yarn install || \
     npm install
 
-# Gera o Prisma Client
+# Gera o Prisma Client (com configurações para evitar problemas com WASM em Docker)
+ENV NODE_ENV=production
+ENV PRISMA_CLIENT_ENGINE_TYPE=binary
 RUN npx prisma generate
 
 # Etapa de build
 FROM base AS builder
 WORKDIR /app
+
+# Configurações para evitar problemas com o Prisma
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 
 # Copia as dependências da etapa anterior
 COPY --from=deps /app/node_modules ./node_modules
