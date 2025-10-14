@@ -1,17 +1,18 @@
-# Dockerfile simplificado e funcional para Next.js + Prisma
-FROM node:20-alpine
+# Dockerfile otimizado para produção no EasyPanel
+FROM node:20-alpine AS base
 
-# Instalar dependências essenciais
-RUN apk add --no-cache libc6-compat curl wget bash
+# Instalar dependências do sistema necessárias
+RUN apk add --no-cache libc6-compat curl wget bash openssl ca-certificates
 
-WORKDIR /app
-
-# Variáveis de ambiente
+# Definir variáveis de ambiente para produção
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PRISMA_CLIENT_ENGINE_TYPE=binary
+ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-openssl-3.0.x
 
-# Args do EasyPanel
+WORKDIR /app
+
+# Argumentos do EasyPanel com valores padrão seguros
 ARG DATABASE_URL
 ARG NEXTAUTH_URL
 ARG NEXTAUTH_SECRET
@@ -25,40 +26,66 @@ ARG EMAIL_SERVER_PASSWORD
 ARG EMAIL_FROM
 ARG TRUSTED_ORIGINS
 
-# Copiar package files
+# Copiar arquivos de dependências
 COPY package*.json ./
 
-# Instalar todas as dependências (incluindo dev para o build)
-RUN npm install
+# Instalar dependências com cache otimizado
+RUN npm ci --only=production --no-audit --no-fund && \
+    npm cache clean --force
 
-# Copiar prisma
+# Copiar schema do Prisma
 COPY prisma ./prisma/
 
-# Copiar código
+# Gerar cliente Prisma com configurações específicas para Alpine
+RUN npx prisma generate
+
+# Copiar código fonte
 COPY . .
 
-# Criar .env se necessário
-RUN echo "DATABASE_URL=${DATABASE_URL:-postgresql://localhost:5432/agendaai}" > .env && \
-    echo "NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}" >> .env && \
-    echo "NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-fallback-secret}" >> .env && \
-    echo "NODE_ENV=production" >> .env
+# Criar arquivo .env para build time
+RUN echo "DATABASE_URL=${DATABASE_URL}" > .env && \
+    echo "NEXTAUTH_URL=${NEXTAUTH_URL}" >> .env && \
+    echo "NEXTAUTH_SECRET=${NEXTAUTH_SECRET}" >> .env && \
+    echo "NODE_ENV=production" >> .env && \
+    echo "TRUSTED_ORIGINS=${TRUSTED_ORIGINS}" >> .env && \
+    echo "CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}" >> .env && \
+    echo "CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}" >> .env && \
+    echo "CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}" >> .env
 
-# Gerar Prisma e fazer build
-RUN npx prisma generate && \
-    npm run build && \
-    echo "Build concluído! Verificando..." && \
-    ls -la .next && \
-    test -f .next/BUILD_ID && echo "✅ BUILD_ID: $(cat .next/BUILD_ID)"
+# Build da aplicação Next.js
+RUN npm run build
 
-# Limpar deps de dev
-RUN npm ci --only=production && npm cache clean --force
+# Verificar se o build foi criado corretamente
+RUN ls -la .next && \
+    test -f .next/BUILD_ID && \
+    echo "✅ Build ID: $(cat .next/BUILD_ID)" && \
+    echo "✅ Next.js build concluído com sucesso!" && \
+    echo "✅ Prisma Client gerado para: linux-musl-openssl-3.0.x"
 
-# Setup usuário
-RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
-RUN chown -R nextjs:nodejs /app
+# Remover arquivos de desenvolvimento desnecessários
+RUN rm -rf .env && \
+    rm -rf node_modules/.cache && \
+    rm -rf /tmp/* && \
+    rm -rf /root/.npm
+
+# Configurar usuário não-root para segurança
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 && \
+    chown -R nextjs:nodejs /app && \
+    chown -R nextjs:nodejs /app/.next
+
 USER nextjs
 
+# Expor porta padrão do Next.js
 EXPOSE 3000
 
-# Comando simples
+# Configurar variáveis de ambiente runtime
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Healthcheck aprimorado
+HEALTHCHECK --interval=30s --timeout=15s --start-period=45s --retries=3 \
+    CMD curl -f http://localhost:3000/api/version || exit 1
+
+# Comando de inicialização otimizado
 CMD ["npm", "start"]

@@ -175,7 +175,7 @@ export function RedefinirSenhaForm() {
                         placeholder="Digite sua nova senha"
                         className={`w-full px-4 py-2 text-gray-900 dark:text-white bg-white dark:bg-gray-800 border ${errors.password ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-700"
                             } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary pr-10`}
-                        disabled={isLoading || tokenValido === false}
+                        disabled={isLoading || !tokenValido}
                         {...register("password")}
                     />
                     <button
@@ -204,7 +204,7 @@ export function RedefinirSenhaForm() {
                         placeholder="Confirme sua nova senha"
                         className={`w-full px-4 py-2 text-gray-900 dark:text-white bg-white dark:bg-gray-800 border ${errors.confirmPassword ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-700"
                             } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary pr-10`}
-                        disabled={isLoading || tokenValido === false}
+                        disabled={isLoading || !tokenValido}
                         {...register("confirmPassword")}
                     />
                     <button
@@ -225,7 +225,7 @@ export function RedefinirSenhaForm() {
             <motion.button
                 type="submit"
                 className="w-full px-4 py-2 bg-primary text-white font-medium rounded-md shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary mb-4 flex items-center justify-center"
-                disabled={isLoading || tokenValido === false}
+                disabled={isLoading || !tokenValido}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
             >

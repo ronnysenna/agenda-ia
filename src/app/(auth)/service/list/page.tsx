@@ -210,7 +210,7 @@ export default function ServiceListPage() {
                                     <TableHead
                                         className="cursor-pointer"
                                         onClick={() => handleSort("name")}
-                                        aria-sort={sortColumn === "name" ? sortDirection : undefined}
+                                        aria-sort={sortColumn === "name" ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
                                         role="columnheader"
                                     >
                                         <div className="flex items-center">
@@ -221,7 +221,7 @@ export default function ServiceListPage() {
                                     <TableHead
                                         className="cursor-pointer hidden md:table-cell"
                                         onClick={() => handleSort("category")}
-                                        aria-sort={sortColumn === "category" ? sortDirection : undefined}
+                                        aria-sort={sortColumn === "category" ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
                                         role="columnheader"
                                     >
                                         <div className="flex items-center">
@@ -232,7 +232,7 @@ export default function ServiceListPage() {
                                     <TableHead
                                         className="cursor-pointer"
                                         onClick={() => handleSort("price")}
-                                        aria-sort={sortColumn === "price" ? sortDirection : undefined}
+                                        aria-sort={sortColumn === "price" ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
                                         role="columnheader"
                                     >
                                         <div className="flex items-center">
@@ -243,7 +243,7 @@ export default function ServiceListPage() {
                                     <TableHead
                                         className="cursor-pointer hidden sm:table-cell"
                                         onClick={() => handleSort("duration")}
-                                        aria-sort={sortColumn === "duration" ? sortDirection : undefined}
+                                        aria-sort={sortColumn === "duration" ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
                                         role="columnheader"
                                     >
                                         <div className="flex items-center">
