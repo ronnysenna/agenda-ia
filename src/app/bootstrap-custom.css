@@ -4,6 +4,14 @@
   --bs-primary-rgb: 251, 169, 49;
 }
 
+/* Links - remover sublinhado */
+a,
+a:hover,
+a:focus,
+a:active {
+  text-decoration: none !important;
+}
+
 .bg-gradient-dark {
   background: linear-gradient(180deg, #1a1d21 0%, #2c3137 100%);
 }

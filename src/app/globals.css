@@ -6,6 +6,11 @@
   /* Importando variáveis do tema */
   @import "./theme-variables.css";
 
+  /* Removendo sublinhado de todos os links */
+  a {
+    text-decoration: none !important;
+  }
+
   /* Qualquer estilo base adicional pode ser adicionado aqui */
 }
 

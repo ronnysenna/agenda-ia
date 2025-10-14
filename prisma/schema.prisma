@@ -9,7 +9,7 @@ datasource db {
 }
 
 model User {
-  id               String    @id
+  id               String    @id @default(uuid())
   name             String
   email            String    @unique
   emailVerified    Boolean
@@ -49,7 +49,7 @@ model Session {
 }
 
 model Account {
-  id                    String    @id
+  id                    String    @id @default(uuid())
   accountId             String
   providerId            String
   userId                String
@@ -135,20 +135,21 @@ model BusinessHours {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id])
 
-  mondayStart    String?
-  mondayEnd      String?
-  tuesdayStart   String?
-  tuesdayEnd     String?
-  wednesdayStart String?
-  wednesdayEnd   String?
-  thursdayStart  String?
-  thursdayEnd    String?
-  fridayStart    String?
-  fridayEnd      String?
-  saturdayStart  String?
-  saturdayEnd    String?
-  sundayStart    String?
-  sundayEnd      String?
+  // Horários de funcionamento para cada dia da semana (em minutos desde a meia-noite)
+  mondayStart    Int?
+  mondayEnd      Int?
+  tuesdayStart   Int?
+  tuesdayEnd     Int?
+  wednesdayStart Int?
+  wednesdayEnd   Int?
+  thursdayStart  Int?
+  thursdayEnd    Int?
+  fridayStart    Int?
+  fridayEnd      Int?
+  saturdayStart  Int?
+  saturdayEnd    Int?
+  sundayStart    Int?
+  sundayEnd      Int?
 
   @@map("business_hours")
 }

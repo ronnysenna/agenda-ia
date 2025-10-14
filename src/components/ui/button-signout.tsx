@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
 import { LogOut } from "lucide-react";
 
 export function ButtonSignOut() {
@@ -10,7 +9,7 @@ export function ButtonSignOut() {
   async function signOut() {
     try {
       // Fazendo um logout direto com fetch para garantir
-      const response = await fetch("/api/auth/logout", {
+      await fetch("/api/auth/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -18,26 +17,20 @@ export function ButtonSignOut() {
         credentials: "include", // Importante para incluir os cookies
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const redirectUrl = data.redirectUrl || "/";
-        router.replace(redirectUrl);
-      } else {
-        console.error("Erro ao fazer logout:", response.statusText);
-        // Mesmo com erro, redireciona para a página inicial
-        router.replace("/");
-      }
+      // Mesmo que a resposta não seja ok, redireciona
+      router.push("/login");
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
       // Redirecionamento forçado em caso de erro
-      router.replace("/");
+      router.push("/login");
     }
   }
 
   return (
     <button
       onClick={signOut}
-      className="btn btn-outline-light w-100 d-flex align-items-center justify-content-center gap-2"
+      className="flex items-center justify-center w-full gap-2 px-4 py-2 text-white transition-colors rounded-lg bg-gray-700 hover:bg-gray-600 active:bg-gray-800"
+      type="button"
     >
       <LogOut size={18} />
       <span>Sair</span>

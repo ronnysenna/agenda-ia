@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
-const { v4: uuidv4 } = require("uuid");
+import { v4 as uuidv4 } from "uuid";
 import bcrypt from "bcrypt";
 
 // Interface básica para o usuário da Better Auth
@@ -14,7 +14,7 @@ interface BetterAuthUser {
 // Função para obter as origens confiáveis do .env
 const getTrustedOrigins = () => {
   const originsString = process.env.TRUSTED_ORIGINS || "http://localhost:3000";
-  return originsString.split(",").map((origin) => origin.trim());
+  return originsString.split("," ).map((origin) => origin.trim());
 };
 
 export const auth = betterAuth({
@@ -42,7 +42,7 @@ export const auth = betterAuth({
       httpOnly: true,
       maxAge: 30 * 24 * 60 * 60, // 30 dias em segundos
     },
-    // Tempo máximo de expiração da sessão (30 dias)
+    // Tempo máximo de expiração da sessão (30 dias )
     maxAge: 30 * 24 * 60 * 60,
   },
   onError: (error: Error, context: string) => {
@@ -106,9 +106,14 @@ export const auth = betterAuth({
         return result;
       } catch (error) {
         console.error("Erro ao processar onSignUp:", error);
-        throw new Error(
-          "Erro ao criar usuário e conta. Tente novamente ou entre em contato com o suporte."
-        );
+        // Loga o erro original para depuração interna
+        console.error("Erro detalhado em onSignUp:", error);
+        // Lança um erro mais específico para o usuário, se possível, ou um genérico
+        if (error instanceof Error && error.message.includes("Unique constraint failed on the fields: (`email`)")) {
+          throw new Error("Este e-mail já está registrado. Por favor, use outro e-mail ou faça login.");
+        } else {
+          throw new Error("Erro ao criar usuário e conta. Tente novamente ou entre em contato com o suporte.");
+        }
       }
     },
     // Hook para garantir robustez no login
@@ -124,9 +129,8 @@ export const auth = betterAuth({
         where: { accountId: email, providerId: "credentials" },
       });
       if (!account) {
-        throw new Error(
-          "Conta de login não encontrada. Redefina sua senha ou entre em contato com o suporte."
-        );
+        // Mensagem mais clara para o usuário
+        throw new Error("Credenciais inválidas. Verifique seu e-mail e senha.");
       }
       // Verifica senha
       const senhaCorreta =

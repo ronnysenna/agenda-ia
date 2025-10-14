@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { Inter, Roboto_Mono } from "next/font/google";
+import "./bootstrap-custom.css";
 import "./globals.css";
+import { BootstrapClient } from "@/components/bootstrap-client";
+
+// Importação do Bootstrap movida para um componente client-side
+// para evitar problemas de SSR
 
 const inter = Inter({
   variable: "--font-inter",
@@ -28,6 +33,8 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${robotoMono.variable} antialiased min-h-screen bg-background`}
       >
+        {/* Componente para carregar Bootstrap no lado do cliente */}
+        <BootstrapClient />
         {children}
       </body>
     </html>

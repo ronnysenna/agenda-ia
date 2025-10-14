@@ -145,32 +145,17 @@ export async function POST(req: NextRequest) {
         status: {
           notIn: ["CANCELLED", "NO_SHOW"],
         },
-        OR: [
+        // Lógica para verificar sobreposição de agendamentos
+        // Um agendamento conflita se (novo.startTime < existente.endTime) E (novo.endTime > existente.startTime)
+        AND: [
           {
-            // Novo agendamento começa durante um existente
             startTime: {
               lt: endTime,
             },
-            endTime: {
-              gt: startTime,
-            },
           },
           {
-            // Novo agendamento termina durante um existente
-            startTime: {
-              lt: endTime,
-            },
             endTime: {
               gt: startTime,
-            },
-          },
-          {
-            // Novo agendamento engloba um existente
-            startTime: {
-              gte: startTime,
-            },
-            endTime: {
-              lte: endTime,
             },
           },
         ],

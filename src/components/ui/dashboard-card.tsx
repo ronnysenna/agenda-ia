@@ -27,7 +27,7 @@ export function DashboardCard({
 }: DashboardCardProps) {
     // Definindo cores com base na variante
     const variantStyles = {
-        default: "",
+        default: "border-gray-200 dark:border-gray-700",
         primary: "border-primary/20 bg-primary/5",
         success: "border-green-500/20 bg-green-500/5",
         warning: "border-yellow-500/20 bg-yellow-500/5",
@@ -35,7 +35,15 @@ export function DashboardCard({
     };
 
     const iconStyles = {
-        default: "text-gray-500",
+        default: "text-gray-500 bg-gray-100 dark:bg-gray-800",
+        primary: "text-primary bg-primary/10",
+        success: "text-green-500 bg-green-500/10",
+        warning: "text-yellow-500 bg-yellow-500/10",
+        danger: "text-red-500 bg-red-500/10",
+    };
+
+    const valueStyles = {
+        default: "text-gray-900 dark:text-gray-100",
         primary: "text-primary",
         success: "text-green-500",
         warning: "text-yellow-500",
@@ -49,27 +57,33 @@ export function DashboardCard({
 
     return (
         <Card
-            className={cn("hover:shadow-md transition-shadow", variantStyles[variant], className)}
-            elevation="sm"
+            className={cn(
+                "overflow-hidden border shadow-sm hover:shadow-md transition-shadow",
+                variantStyles[variant],
+                className
+            )}
         >
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
                 <CardTitle className="text-base font-medium">{title}</CardTitle>
                 {icon && (
-                    <div className={cn("p-2 rounded-full bg-gray-100/80 dark:bg-gray-800/80", iconStyles[variant])}>
+                    <div className={cn(
+                        "p-2 rounded-full",
+                        iconStyles[variant]
+                    )}>
                         {icon}
                     </div>
                 )}
             </CardHeader>
-            <CardContent>
-                <div className="flex flex-col space-y-1">
-                    <div className="text-2xl font-semibold">{value}</div>
+            <CardContent className="pt-6">
+                <div className="flex flex-col space-y-2">
+                    <div className={cn("text-3xl font-bold", valueStyles[variant])}>{value}</div>
 
                     {(trend || description) && (
-                        <div className="flex items-center text-sm">
+                        <div className="flex items-center text-sm mt-1">
                             {trend && (
                                 <span
                                     className={cn(
-                                        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium mr-2",
+                                        "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium mr-2",
                                         trend.isPositive ? trendStyles.positive : trendStyles.negative
                                     )}
                                 >
@@ -77,7 +91,7 @@ export function DashboardCard({
                                 </span>
                             )}
                             {description && (
-                                <span className="text-muted-foreground text-xs">{description}</span>
+                                <span className="text-muted-foreground text-sm">{description}</span>
                             )}
                         </div>
                     )}

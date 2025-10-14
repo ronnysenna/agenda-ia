@@ -4,150 +4,138 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-// Se você está usando Bootstrap, o componente Alert é do 'react-bootstrap'
-// Certifique-se de ter 'react-bootstrap' instalado: npm install react-bootstrap bootstrap
-import { Alert } from "react-bootstrap";
+import { motion } from "framer-motion";
 
 const formSchema = z.object({
-  email: z.string().email("E-mail inválido."),
+    email: z.string().email("E-mail inválido."),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
 export function RecuperarSenhaForm() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [statusMessage, setStatusMessage] = useState<{
+        type: "success" | "error";
+        message: string;
+    } | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset, // Adicionado para limpar o formulário após o sucesso
-  } = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-  });
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+        reset,
+    } = useForm<FormData>({
+        resolver: zodResolver(formSchema),
+    });
 
-  const onSubmit = async (data: FormData) => {
-    setIsLoading(true);
-    setError(null); // Limpa erros anteriores
-    setSuccess(null); // Limpa mensagens de sucesso anteriores
+    const onSubmit = async (data: FormData) => {
+        setIsLoading(true);
+        setStatusMessage(null);
 
-    try {
-      const response = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: data.email }),
-      });
+        try {
+            // Simula uma chamada de API para solicitar recuperação de senha
+            const response = await fetch("/api/auth/recuperar-senha", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email: data.email }),
+            });
 
-      // Verifica primeiro se a resposta existe
-      if (!response) {
-        throw new Error(
-          "Não foi possível conectar ao servidor. Verifique sua conexão.",
-        );
-      }
+            const result = await response.json();
 
-      // Captura o texto da resposta antes de tentar parsear como JSON
-      const responseText = await response.text();
+            if (!response.ok) {
+                throw new Error(result.message || "Erro ao solicitar redefinição de senha.");
+            }
 
-      // Se a resposta estiver vazia, trate adequadamente
-      if (!responseText) {
-        if (!response.ok) {
-          throw new Error(
-            `Erro ${response.status}: Resposta vazia do servidor`,
-          );
+            // Sucesso
+            setStatusMessage({
+                type: "success",
+                message: "E-mail de recuperação enviado! Verifique sua caixa de entrada.",
+            });
+            reset(); // Limpa o formulário após sucesso
+        } catch (error: any) {
+            setStatusMessage({
+                type: "error",
+                message: error.message || "Ocorreu um erro. Tente novamente mais tarde.",
+            });
+        } finally {
+            setIsLoading(false);
         }
-        // Se a resposta for OK mas vazia, considere como sucesso
-        setSuccess(
-          "Um link de recuperação foi enviado para o seu e-mail, se a conta existir.",
-        );
-        reset();
-        return;
-      }
+    };
 
-      // Tenta parsear o texto como JSON
-      let responseData;
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (jsonError) {
-        console.error("Erro ao parsear JSON:", responseText);
-        throw new Error(
-          "Resposta inválida do servidor. Por favor, tente novamente mais tarde.",
-        );
-      }
+    return (
+        <form onSubmit={handleSubmit(onSubmit)}>
+            {/* Mensagens de status */}
+            {statusMessage && (
+                <div className={`p-4 mb-4 rounded-lg flex items-center justify-between ${statusMessage.type === "success"
+                    ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
+                    : "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400"
+                    }`}>
+                    <span>{statusMessage.message}</span>
+                    <button
+                        type="button"
+                        className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                        onClick={() => setStatusMessage(null)}
+                    >
+                        &times;
+                    </button>
+                </div>
+            )}
 
-      // Agora podemos verificar se a resposta indica sucesso ou erro
-      if (!response.ok) {
-        throw new Error(
-          responseData.error || "Erro desconhecido ao solicitar a recuperação.",
-        );
-      }
+            <div className="mb-6">
+                <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-white mb-1"
+                >
+                    E-mail
+                </label>
+                <input
+                    type="email"
+                    id="email"
+                    placeholder="Digite o e-mail da sua conta"
+                    className={`w-full px-4 py-2 text-gray-900 dark:text-white bg-white dark:bg-gray-800 border ${errors.email ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-700"
+                        } rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary`}
+                    disabled={isLoading}
+                    {...register("email")}
+                />
+                {errors.email && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
+                )}
+            </div>
 
-      // Se chegamos aqui, a resposta foi bem-sucedida
-      setSuccess(
-        "Um link de recuperação foi enviado para o seu e-mail, se a conta existir. Verifique sua caixa de entrada e spam.",
-      );
-      reset(); // Limpa o campo de e-mail após o envio bem-sucedido
-    } catch (err: any) {
-      // Captura qualquer tipo de erro
-      setError(err.message || "Ocorreu um erro. Por favor, tente novamente.");
-      console.error("Erro na recuperação de senha:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+            <div className="mb-6">
+                <motion.button
+                    type="submit"
+                    className="w-full px-4 py-2 bg-primary text-white font-medium rounded-md shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary flex items-center justify-center"
+                    disabled={isLoading}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                >
+                    {isLoading ? (
+                        <div className="flex items-center gap-2">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Enviando...
+                        </div>
+                    ) : (
+                        "Enviar e-mail de recuperação"
+                    )}
+                </motion.button>
+            </div>
 
-  return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      {/* Exibição de mensagens de erro ou sucesso */}
-      {error && (
-        <Alert variant="danger" className="mb-3">
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert variant="success" className="mb-3">
-          {success}
-        </Alert>
-      )}
-
-      <div className="mb-3">
-        <label htmlFor="email" className="form-label text-dark">
-          E-mail
-        </label>
-        <input
-          type="email"
-          className={`form-control form-control-lg ${errors.email ? "is-invalid" : ""}`}
-          id="email"
-          placeholder="seu@email.com"
-          disabled={isLoading}
-          {...register("email")}
-        />
-        {errors.email && (
-          <div className="invalid-feedback">{errors.email.message}</div>
-        )}
-      </div>
-
-      <button
-        type="submit"
-        className="btn btn-primary btn-lg w-100 mt-4"
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <>
-            <span
-              className="spinner-border spinner-border-sm"
-              role="status"
-              aria-hidden="true"
-            ></span>
-            <span className="ms-2">Enviando...</span>
-          </>
-        ) : (
-          "Enviar Link de Recuperação"
-        )}
-      </button>
-    </form>
-  );
+            <div className="text-center">
+                <p className="text-gray-600 dark:text-gray-400">
+                    Lembrou sua senha?{" "}
+                    <a href="/login" className="text-primary font-semibold hover:underline">
+                        Voltar para login
+                    </a>
+                </p>
+            </div>
+        </form>
+    );
 }
+
+export default RecuperarSenhaForm;
