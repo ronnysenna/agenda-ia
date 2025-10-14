@@ -1,40 +1,15 @@
-# Dockerfile otimizado para Next.js com Prisma no Easypanel
-FROM node:20.11-alpine AS builder
+# Dockerfile simplificado para debugging
+FROM node:20.11-alpine
 
-# Instalar dependências necessárias para o build
-RUN apk add --no-cache libc6-compat python3 make g++ curl wget
+# Instalar dependências básicas
+RUN apk add --no-cache libc6-compat curl wget
 
 # Diretório de trabalho
 WORKDIR /app
 
-# Configurações do Prisma para build
-ENV PRISMA_CLIENT_ENGINE_TYPE=binary
-ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=true
-ENV PRISMA_GENERATE_DATAPROXY=false
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-ENV DEBUG="*"
-ENV PRISMA_CLIENT_FORCE_WASM=false
-
-# Copiar apenas arquivos de dependências primeiro para melhor cache
-COPY package.json package-lock.json* ./
-COPY prisma ./prisma/
-
-# Instalar dependências (usando npm install em vez de ci para maior compatibilidade)
-RUN npm install
-
-# Criar diretório necessário para arquivos WASM do Prisma
-RUN mkdir -p /app/node_modules/@prisma/client/runtime
-
-# Criar arquivos vazios necessários para o Prisma
-RUN touch /app/node_modules/@prisma/client/runtime/wasm-engine-edge.js
-RUN touch /app/node_modules/@prisma/client/runtime/wasm-compiler-edge.js
-
-# Copiar o resto do código
-COPY . .
-
 # Definir argumentos para variáveis de ambiente
 ARG DATABASE_URL
-ARG NEXTAUTH_URL
+ARG NEXTAUTH_URL  
 ARG NEXTAUTH_SECRET
 ARG CLOUDINARY_CLOUD_NAME
 ARG CLOUDINARY_API_KEY
@@ -47,74 +22,57 @@ ARG EMAIL_FROM
 ARG NODE_ENV
 ARG TRUSTED_ORIGINS
 
-# Criar arquivo .env dinamicamente com os argumentos recebidos
-RUN echo "# Arquivo .env gerado automaticamente durante o build" > .env && \
-    echo "DATABASE_URL=\"${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/agendaai}\"" >> .env && \
+# Criar arquivo .env com as variáveis de ambiente
+RUN echo "DATABASE_URL=\"${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/agendaai}\"" > .env && \
     echo "NEXTAUTH_URL=\"${NEXTAUTH_URL:-http://localhost:3000}\"" >> .env && \
-    echo "NEXTAUTH_SECRET=\"${NEXTAUTH_SECRET:-build-secret-not-for-production}\"" >> .env && \
+    echo "NEXTAUTH_SECRET=\"${NEXTAUTH_SECRET:-build-secret}\"" >> .env && \
     echo "CLOUDINARY_CLOUD_NAME=\"${CLOUDINARY_CLOUD_NAME:-build-cloud}\"" >> .env && \
     echo "CLOUDINARY_API_KEY=\"${CLOUDINARY_API_KEY:-build-key}\"" >> .env && \
     echo "CLOUDINARY_API_SECRET=\"${CLOUDINARY_API_SECRET:-build-secret}\"" >> .env && \
     echo "EMAIL_SERVER_HOST=\"${EMAIL_SERVER_HOST:-smtp.example.com}\"" >> .env && \
     echo "EMAIL_SERVER_PORT=\"${EMAIL_SERVER_PORT:-587}\"" >> .env && \
     echo "EMAIL_SERVER_USER=\"${EMAIL_SERVER_USER:-user@example.com}\"" >> .env && \
-    echo "EMAIL_SERVER_PASSWORD=\"${EMAIL_SERVER_PASSWORD:-build-password}\"" >> .env && \
+    echo "EMAIL_SERVER_PASSWORD=\"${EMAIL_SERVER_PASSWORD:-password}\"" >> .env && \
     echo "EMAIL_FROM=\"${EMAIL_FROM:-noreply@example.com}\"" >> .env && \
-    echo "NODE_ENV=\"${NODE_ENV:-production}\"" >> .env && \
-    echo "TRUSTED_ORIGINS=\"${TRUSTED_ORIGINS:-https://vendamais-front.dgohio.easypanel.host,http://localhost:3000}\"" >> .env && \
-    cat .env
+    echo "NODE_ENV=production" >> .env && \
+    echo "TRUSTED_ORIGINS=\"${TRUSTED_ORIGINS:-https://vendamais-front.dgohio.easypanel.host}\"" >> .env
 
-# Gerar cliente Prisma com suporte explícito para debian-openssl-3.0.x
-RUN npx prisma generate --schema=./prisma/schema.prisma || (echo "Prisma generate failed, retrying with manual path creation" && mkdir -p /app/src/generated/prisma && npx prisma generate --schema=./prisma/schema.prisma)
+# Copiar arquivos de dependências
+COPY package.json package-lock.json* ./
+COPY prisma ./prisma/
 
-# Verificar geração do cliente Prisma
-RUN ls -la /app/src/generated/prisma || echo "Client not generated at expected location"
+# Instalar dependências
+RUN npm install
 
-# Construir o aplicativo
-RUN npm run build && ls -la /app/.next || (echo "Build failed! Debugging info:" && cat /app/.next/error.log 2>/dev/null || echo "No error log found")
+# Copiar todo o código
+COPY . .
 
-# Imagem de produção
-FROM node:20.11-alpine AS runner
-
-# Instalar dependências necessárias para produção
-RUN apk add --no-cache libc6-compat curl wget
-
-WORKDIR /app
-
+# Definir variáveis de ambiente
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PRISMA_CLIENT_ENGINE_TYPE=binary
 ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
 
-# Copiar dependências e arquivos de build da etapa anterior
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/next.config.js ./next.config.js
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/src/generated ./src/generated
+# Gerar cliente Prisma
+RUN npx prisma generate
 
-# Verificar conteúdo copiado detalhadamente
-RUN echo "=== VERIFICAÇÃO DETALHADA ===" && \
-    ls -la /app && \
-    echo "--- Conteúdo do diretório .next ---" && \
-    ls -la /app/.next && \
-    echo "--- Arquivos específicos ---" && \
-    find /app/.next -type f -name "*BUILD*" && \
-    find /app/.next -name "*.json" | head -5 && \
-    echo "--- Verificando se é um build válido ---" && \
-    ls -la /app/.next/server && \
-    echo "--- Conteúdo Prisma ---" && \
-    ls -la /app/src/generated/prisma || echo "Diretório Prisma não encontrado"
+# Fazer o build do Next.js
+RUN npm run build
 
-# Expor a porta do servidor
+# Verificar se o build foi criado
+RUN echo "=== VERIFICANDO BUILD ===" && \
+    ls -la .next && \
+    echo "=== ARQUIVOS BUILD_ID ===" && \
+    find .next -name "*BUILD*" -type f && \
+    echo "=== CONTEÚDO BUILD_ID ===" && \
+    cat .next/BUILD_ID 2>/dev/null || echo "BUILD_ID não encontrado" && \
+    echo "=== VERIFICAÇÃO CONCLUÍDA ==="
+
+# Expor porta
 EXPOSE 3000
 
-# Healthcheck mais simples e confiável
+# Healthcheck
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:3000/api/version || wget -q --spider http://localhost:3000/api/version || exit 1
+    CMD curl -f http://localhost:3000/api/version || exit 1
 
-# Comando simplificado para debug - executar como root temporariamente
-CMD ["sh", "-c", "echo 'INICIANDO DEBUG DO CONTAINER:' && ls -la /app/.next && echo 'TENTANDO INICIAR NEXT.JS:' && npm start"]
+# Iniciar aplicação com debug
+CMD ["sh", "-c", "echo 'INICIANDO APLICAÇÃO:' && ls -la .next && npm start"]

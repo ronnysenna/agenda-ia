@@ -1,0 +1,43 @@
+# Dockerfile simplificado para debugging
+FROM node:20.11-alpine
+
+# Instalar dependências básicas
+RUN apk add --no-cache libc6-compat curl wget
+
+# Diretório de trabalho
+WORKDIR /app
+
+# Copiar arquivos de dependências
+COPY package.json package-lock.json* ./
+COPY prisma ./prisma/
+
+# Instalar dependências
+RUN npm install
+
+# Copiar todo o código
+COPY . .
+
+# Definir variáveis de ambiente básicas
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+
+# Gerar cliente Prisma
+RUN npx prisma generate
+
+# Fazer o build do Next.js
+RUN npm run build
+
+# Verificar se o build foi criado
+RUN echo "=== VERIFICANDO BUILD ===" && \
+    ls -la .next && \
+    echo "=== ARQUIVOS BUILD_ID ===" && \
+    find .next -name "*BUILD*" -type f && \
+    echo "=== CONTEÚDO BUILD_ID ===" && \
+    cat .next/BUILD_ID 2>/dev/null || echo "BUILD_ID não encontrado"
+
+# Expor porta
+EXPOSE 3000
+
+# Iniciar aplicação
+CMD ["npm", "start"]
