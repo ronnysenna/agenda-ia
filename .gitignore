@@ -39,16 +39,19 @@ dev-server.log
 .env.local
 .env.development
 .env.production
+.env.docker
 .env*.local
 # Example env file que pode ser commitado
 !.env.example
-!.env.docker
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
+
+# Arquivos de configuração com informações sensíveis
+
 next-env.d.ts
 
 # scripts de análise local
