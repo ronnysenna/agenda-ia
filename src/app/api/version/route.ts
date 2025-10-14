@@ -2,18 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  // Verificar status do banco de dados
   let databaseStatus = "unknown";
   try {
-    // Tentar uma consulta simples para verificar conexão com o banco
     await prisma.$queryRaw`SELECT 1`;
     databaseStatus = "connected";
   } catch (error) {
-    databaseStatus =
-      "error: " + (error instanceof Error ? error.message : String(error));
+    databaseStatus = "error"; // Não retorna mensagem detalhada para não quebrar healthcheck
   }
 
-  // Retornar informações detalhadas sobre o estado do sistema
+  // Sempre retorna status 200, mesmo se o banco estiver offline
   return NextResponse.json(
     {
       status: "online",
@@ -32,7 +29,7 @@ export async function GET() {
       },
       server: {
         hostname: process.env.HOSTNAME || "not set",
-        port: process.env.PORT || "3000",
+        port: process.env.PORT || "80",
       },
     },
     {
