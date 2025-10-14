@@ -80,8 +80,8 @@ RUN echo "DATABASE_URL=${DATABASE_URL}" > .env && \
 # Gerar Prisma Client
 RUN npx prisma generate
 
-# Build Next.js
-RUN npm run build
+# Build Next.js com log detalhado
+RUN npm run build > build.log 2>&1 || (cat build.log && exit 1)
 
 # Verificar build
 RUN ls -la .next && test -f .next/BUILD_ID && echo "✅ BUILD_ID: $(cat .next/BUILD_ID)"
