@@ -20,19 +20,32 @@ RUN npm install
 # Variáveis de ambiente para o Prisma
 ENV PRISMA_CLIENT_ENGINE_TYPE=binary
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=true
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+ENV PRISMA_GENERATE_SKIP_AUTOINSTALL=true
+ENV DEBUG="*"
 
 # Cria diretórios necessários para o Prisma
 RUN mkdir -p /app/node_modules/@prisma/client/runtime
 RUN mkdir -p /app/src/generated/prisma
 
-# Cria um arquivo vazio para evitar erro do wasm-engine-edge.js
+# Instala o Prisma CLI globalmente para garantir que esteja disponível
+RUN npm install -g prisma@4.16.2
+
+# Cria arquivos vazios para evitar erros relacionados ao WASM
 RUN touch /app/node_modules/@prisma/client/runtime/wasm-engine-edge.js
+RUN touch /app/node_modules/@prisma/client/runtime/wasm-compiler-edge.js
 
 # Gera o cliente Prisma
 RUN npx prisma generate || echo "Continuando após tentativa de geração do Prisma"
 
-# Constrói o aplicativo Next.js
-RUN npm run build
+# Verifica se existe o arquivo wasm-compiler-edge.js e cria se não existir
+RUN touch /app/node_modules/@prisma/client/runtime/wasm-compiler-edge.js
+
+# Constrói o aplicativo Next.js diretamente sem usar o script do package.json
+RUN NODE_ENV=production npx next build
+
+# Verifica se a build foi bem-sucedida
+RUN ls -la /app/.next
 
 # Configura usuário não-root para segurança
 RUN addgroup --system --gid 1001 nodejs && \
@@ -53,5 +66,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
     CMD wget -q --spider http://localhost:3000/ || exit 1
 
-# Inicia o servidor Next.js
-CMD ["npm", "run", "start"]
+# Inicia o servidor Next.js diretamente
+CMD ["npx", "next", "start"]
