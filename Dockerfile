@@ -109,10 +109,6 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 USER nextjs
 
-# Copiar scripts de diagnóstico
-COPY scripts/diagnostico.sh /app/scripts/
-RUN chmod +x /app/scripts/diagnostico.sh
-
 # Expor a porta do servidor
 EXPOSE 3000
 
