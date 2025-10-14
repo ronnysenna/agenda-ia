@@ -71,7 +71,7 @@ RUN npx prisma generate --schema=./prisma/schema.prisma || (echo "Prisma generat
 RUN ls -la /app/src/generated/prisma || echo "Client not generated at expected location"
 
 # Construir o aplicativo
-RUN npm run build || (echo "Build failed! Debugging info:" && cat /app/.next/error.log 2>/dev/null || echo "No error log found")
+RUN npm run build && ls -la /app/.next || (echo "Build failed! Debugging info:" && cat /app/.next/error.log 2>/dev/null || echo "No error log found")
 
 # Imagem de produção
 FROM node:20.11-alpine AS runner
