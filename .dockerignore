@@ -9,7 +9,7 @@ node_modules
 .DS_Store
 
 # Arquivos de build e cache
-.next
+# Removido: .next
 *.log
 npm-debug.log*
 yarn-debug.log*
