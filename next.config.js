@@ -21,6 +21,11 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "vendamais-front.dgohio.easypanel.host",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "developers.google.com",
         pathname: "/**",
       },
@@ -35,6 +40,7 @@ const nextConfig = {
       "agenda-ai.ronnysenna.com.br",
       "developers.google.com",
       "i.pravatar.cc",
+      "vendamais-front.dgohio.easypanel.host",
     ],
   },
 

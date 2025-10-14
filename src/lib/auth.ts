@@ -13,8 +13,10 @@ interface BetterAuthUser {
 
 // Função para obter as origens confiáveis do .env
 const getTrustedOrigins = () => {
-  const originsString = process.env.TRUSTED_ORIGINS || "http://localhost:3000";
-  return originsString.split("," ).map((origin) => origin.trim());
+  const originsString =
+    process.env.TRUSTED_ORIGINS ||
+    "http://localhost:3000,https://vendamais-front.dgohio.easypanel.host";
+  return originsString.split(",").map((origin) => origin.trim());
 };
 
 export const auth = betterAuth({
@@ -109,15 +111,30 @@ export const auth = betterAuth({
         // Loga o erro original para depuração interna
         console.error("Erro detalhado em onSignUp:", error);
         // Lança um erro mais específico para o usuário, se possível, ou um genérico
-        if (error instanceof Error && error.message.includes("Unique constraint failed on the fields: (`email`)")) {
-          throw new Error("Este e-mail já está registrado. Por favor, use outro e-mail ou faça login.");
+        if (
+          error instanceof Error &&
+          error.message.includes(
+            "Unique constraint failed on the fields: (`email`)"
+          )
+        ) {
+          throw new Error(
+            "Este e-mail já está registrado. Por favor, use outro e-mail ou faça login."
+          );
         } else {
-          throw new Error("Erro ao criar usuário e conta. Tente novamente ou entre em contato com o suporte.");
+          throw new Error(
+            "Erro ao criar usuário e conta. Tente novamente ou entre em contato com o suporte."
+          );
         }
       }
     },
     // Hook para garantir robustez no login
-    onSignIn: async ({ email, password }: { email: string; password: string }) => {
+    onSignIn: async ({
+      email,
+      password,
+    }: {
+      email: string;
+      password: string;
+    }) => {
       // Busca usuário e conta
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user) {
