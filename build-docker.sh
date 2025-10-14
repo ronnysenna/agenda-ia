@@ -1,13 +1,31 @@
 #!/bin/bash
 # Script para build e teste do Docker do AgendaAI
 
+set -e
+
 echo "===> Iniciando build do Docker para o AgendaAI..."
 echo "===> Data e hora: $(date)"
+
+# Verificar se existe o arquivo .env.docker
+if [ ! -f .env.docker ]; then
+    echo "===> AVISO: Arquivo .env.docker não encontrado! Criando a partir do .env.example..."
+    if [ -f .env.example ]; then
+        cp .env.example .env.docker
+        echo "===> Arquivo .env.docker criado. Por favor, verifique as configurações antes de prosseguir."
+    else
+        echo "===> ERRO: Não foi possível encontrar .env.example para criar .env.docker"
+        exit 1
+    fi
+fi
 
 # Limpar containers e imagens anteriores
 echo "===> Limpando containers e imagens anteriores..."
 docker rm -f agendaai-container 2>/dev/null || true
 docker rmi -f agendaai-image 2>/dev/null || true
+
+# Verificar existência de diretórios importantes
+echo "===> Verificando estrutura de diretórios..."
+mkdir -p src/generated/prisma
 
 # Construir a imagem
 echo "===> Construindo a imagem Docker..."

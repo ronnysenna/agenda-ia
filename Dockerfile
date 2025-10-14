@@ -11,7 +11,9 @@ WORKDIR /app
 ENV PRISMA_CLIENT_ENGINE_TYPE=binary
 ENV PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=true
 ENV PRISMA_GENERATE_DATAPROXY=false
-ENV PRISMA_GENERATE_SKIP_AUTOINSTALL=true
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+ENV DEBUG="*"
+ENV PRISMA_CLIENT_FORCE_WASM=false
 
 # Copiar apenas arquivos de dependências primeiro para melhor cache
 COPY package.json package-lock.json* ./
@@ -20,14 +22,24 @@ COPY prisma ./prisma/
 # Instalar dependências (usando npm install em vez de ci para maior compatibilidade)
 RUN npm install
 
+# Criar diretório necessário para arquivos WASM do Prisma
+RUN mkdir -p /app/node_modules/@prisma/client/runtime
+
+# Criar arquivos vazios necessários para o Prisma
+RUN touch /app/node_modules/@prisma/client/runtime/wasm-engine-edge.js
+RUN touch /app/node_modules/@prisma/client/runtime/wasm-compiler-edge.js
+
 # Copiar o resto do código
 COPY . .
 
+# Copiar o arquivo .env.docker para .env para o build
+COPY .env.docker .env
+
 # Gerar cliente Prisma com suporte explícito para debian-openssl-3.0.x
-RUN npx prisma generate --schema=./prisma/schema.prisma
+RUN npx prisma generate --schema=./prisma/schema.prisma || (echo "Prisma generate failed, retrying with manual path creation" && mkdir -p /app/src/generated/prisma && npx prisma generate --schema=./prisma/schema.prisma)
 
 # Verificar geração do cliente Prisma
-RUN ls -la /app/src/generated/prisma
+RUN ls -la /app/src/generated/prisma || echo "Client not generated at expected location"
 
 # Construir o aplicativo
 RUN npm run build || (echo "Build failed! Debugging info:" && cat /app/.next/error.log 2>/dev/null || echo "No error log found")

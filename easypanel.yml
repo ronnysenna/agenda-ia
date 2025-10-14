@@ -1,12 +1,13 @@
 # Easypanel project configuration
 project:
-  name: agendaai
+  name: vendamais
   services:
     app:
       # Build settings
       dockerfile: Dockerfile
       port: 3000
       env:
+        # Configurações do Node e Next.js
         - name: NODE_ENV
           value: production
         - name: PORT
@@ -17,13 +18,42 @@ project:
           value: "1"
         - name: PRISMA_CLIENT_ENGINE_TYPE
           value: binary
-        # Substitua pelas suas próprias variáveis de ambiente
+
+        # Banco de dados
         - name: DATABASE_URL
-          value: "postgresql://{{dbuser}}:{{dbpass}}@{{dbhost}}:{{dbport}}/{{dbname}}?schema=public"
+          value: "postgres://postgres:Ideal2015net@easypanel.ronnysenna.com.br:6543/vendamais?sslmode=disable"
+
+        # Autenticação
         - name: NEXTAUTH_URL
           value: "https://{{domain}}"
         - name: NEXTAUTH_SECRET
           secret: nextauth-secret
+        - name: GOOGLE_CLIENT_ID
+          value: "539151016964-rb1e9psmd3l8usRteplqd74i2je5u22.apps.googleusercontent.com"
+        - name: GOOGLE_CLIENT_SECRET
+          value: "gQCSPX-y5uKxNRePQCsKDfmIPbB-z7BAN37"
+        - name: BETTER_AUTH_SECRET
+          value: "cUubnx5Bd9sVatuwe70vJPLs57sXjYh"
+
+        # Cloudinary
+        - name: CLOUDINARY_CLOUD_NAME
+          value: "4vq5a1chd"
+        - name: CLOUDINARY_API_KEY
+          value: "165116311449088"
+        - name: CLOUDINARY_API_SECRET
+          value: "fsWolGhxnihzLY73LzFH-YuD4F8"
+
+        # Email (SMTP)
+        - name: EMAIL_HOST
+          value: "smtp.gmail.com"
+        - name: EMAIL_PORT
+          value: "587"
+        - name: EMAIL_USER
+          value: "admteralink@gmail.com"
+        - name: EMAIL_PASS
+          value: "qcltxjumwxvcjqut"
+        - name: EMAIL_FROM
+          value: "AgendaAI"
 
       # Resources
       resources:
