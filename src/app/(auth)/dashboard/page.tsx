@@ -1,5 +1,5 @@
 import { getProtectedSession } from "@/lib/get-protected-session";
-import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import DashboardLayout from "@/components/layouts/dashboard-layout";
 import { DashboardCard } from "@/components/ui/dashboard-card";
 import {
   CalendarCheck,
@@ -11,7 +11,7 @@ import {
   CreditCard,
   ArrowUpRight
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Card, { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function Dashboard() {
   const session = await getProtectedSession();
