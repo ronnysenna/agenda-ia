@@ -7,7 +7,7 @@ export async function GET() {
   const session = await getProtectedSession();
   if (!session?.user?.id) return NextResponse.json([], { status: 401 });
 
-  const collaborators = await prisma.Collaborator.findMany({
+  const collaborators = await prisma.collaborator.findMany({
     where: { userId: session.user.id },
     orderBy: { name: "asc" },
   });
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       { status: 400 }
     );
 
-  const collaborator = await prisma.Collaborator.create({
+  const collaborator = await prisma.collaborator.create({
     data: {
       name,
       role,

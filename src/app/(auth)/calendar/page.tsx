@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, Settings, Loader2 } from 'lucide-react';
-import { DashboardLayout } from '@/components/layouts/dashboard-layout';
+import DashboardLayout from "@/components/layouts/dashboard-layout";
 import { BigCalendar } from '@/components/ui/big-calendar';
 import type { AppointmentEvent } from '@/components/ui/big-calendar';
 

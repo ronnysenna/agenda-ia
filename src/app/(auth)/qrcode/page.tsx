@@ -4,12 +4,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import {
     Loader2, QrCode, Trash2, History, AlertCircle, ListChecks,
-    CheckCircle, XCircle, Info, RefreshCw, AlertTriangle, HelpCircle
+    CheckCircle, XCircle, Info, RefreshCw, HelpCircle
 } from "lucide-react";
-import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import DashboardLayout from "@/components/layouts/dashboard-layout";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface QRCodeResponse {
@@ -24,12 +23,14 @@ interface QRCodeResponse {
 }
 
 interface InstanceHistory {
+    id: string;
     name: string;
     lastConnected: string;
     status: "connected" | "disconnected" | "error";
 }
 
 interface InstanceDetail {
+    id: string;
     name: string;
     status: string;
 }
@@ -143,11 +144,13 @@ export default function QRCodePage() {
                 // Dados de exemplo
                 const mockHistory: InstanceHistory[] = [
                     {
+                        id: "1",
                         name: "agenda_ai",
                         lastConnected: "2025-10-10T15:30:00Z",
                         status: "connected"
                     },
                     {
+                        id: "2",
                         name: "agenda_ai_backup",
                         lastConnected: "2025-10-05T10:15:00Z",
                         status: "disconnected"
@@ -167,7 +170,7 @@ export default function QRCodePage() {
     }, [currentTab]);
 
     // Carregar lista de instâncias
-    const fetchInstanceList = async () => {
+    const fetchInstanceList = useCallback(async () => {
         if (currentTab !== "instances") return;
 
         try {
@@ -178,8 +181,8 @@ export default function QRCodePage() {
 
             // Dados de exemplo
             const mockInstances: InstanceDetail[] = [
-                { name: "agenda_ai", status: "open" },
-                { name: "agenda_ai_backup", status: "close" }
+                { id: "1", name: "agenda_ai", status: "open" },
+                { id: "2", name: "agenda_ai_backup", status: "close" }
             ];
 
             setInstanceList(mockInstances);
@@ -190,14 +193,14 @@ export default function QRCodePage() {
         } finally {
             setIsLoadingInstances(false);
         }
-    };
+    }, [currentTab]);
 
     // Carregar lista de instâncias quando a aba for selecionada
     useEffect(() => {
         if (currentTab === "instances") {
             fetchInstanceList();
         }
-    }, [currentTab]);
+    }, [currentTab, fetchInstanceList]);
 
     // Gerar novo QR Code
     const generateQRCode = async () => {
@@ -502,9 +505,9 @@ export default function QRCodePage() {
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        {instanceHistory.map((instance, index) => (
+                                        {instanceHistory.map((instance) => (
                                             <div
-                                                key={index}
+                                                key={instance.id}
                                                 className="p-4 border rounded-lg flex items-center justify-between"
                                             >
                                                 <div>
@@ -581,7 +584,7 @@ export default function QRCodePage() {
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        {instanceList.map((instance, index) => {
+                                        {instanceList.map((instance) => {
                                             const statusInfo = STATUS_DISPLAY_INFO[instance.status] || {
                                                 text: "Desconhecido",
                                                 color: "text-gray-500",
@@ -593,7 +596,7 @@ export default function QRCodePage() {
 
                                             return (
                                                 <div
-                                                    key={index}
+                                                    key={instance.id}
                                                     className="p-4 border rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                                                 >
                                                     <div>

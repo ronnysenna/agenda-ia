@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Clock, Settings, Save, Plus, Trash2, Loader2, Check, AlertCircle } from "lucide-react";
-import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { Clock, Save, Plus, Trash2, Loader2, Check, AlertCircle } from "lucide-react";
+import DashboardLayout from "@/components/layouts/dashboard-layout";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ interface BusinessHour {
     day: string;
     isOpen: boolean;
     periods: {
+        id?: string;
         start: string;
         end: string;
     }[];
@@ -101,7 +102,7 @@ export default function AvailabilityPage() {
 
             // Calcular horário para o próximo período
             const newStart = lastPeriod?.end || "09:00";
-            let hour = parseInt(newStart.split(':')[0]);
+            const hour = parseInt(newStart.split(':')[0]);
             let newEnd = (hour + 1) + ":00";
 
             if (hour >= 23) newEnd = "23:59";
@@ -269,7 +270,7 @@ export default function AvailabilityPage() {
                                         ) : (
                                             <div className="space-y-3">
                                                 {day.periods.map((period, periodIndex) => (
-                                                    <div key={periodIndex} className="grid grid-cols-1 sm:grid-cols-8 gap-3 items-center">
+                                                    <div key={period.id || period.start} className="grid grid-cols-1 sm:grid-cols-8 gap-3 items-center">
                                                         <div className="sm:col-span-3">
                                                             <div className="flex items-center">
                                                                 <span className="text-sm font-medium w-14">Início:</span>

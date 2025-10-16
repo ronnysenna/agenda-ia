@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { format, parse, addDays, startOfWeek, endOfWeek, isToday, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
@@ -39,25 +39,54 @@ export default function CalendarWeekPage(props: any) {
     const [showModal, setShowModal] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
 
-    // Carregar a data da URL se disponível
-    useEffect(() => {
-        if (params?.date) {
-            try {
-                const date = new Date(params.date);
-                if (!isNaN(date.getTime())) {
-                    setSelectedDate(date);
-                }
-            } catch (e) {
-                console.error("Data inválida na URL");
-            }
-        }
+    // Buscar agendamentos para a semana
+    const fetchAppointments = useCallback(async (start: Date, end: Date) => {
+        try {
+            setIsLoading(true);
+            setError(null);
 
-        // Calcular os dias da semana
-        generateWeekDays();
-    }, [params, selectedDate]);
+            // Simulação de dados
+            const mockAppointments: Appointment[] = [];
+            const serviceNames = ['Corte de Cabelo', 'Manicure', 'Pedicure', 'Hidratação', 'Barba'];
+            const clientNames = ['João Silva', 'Maria Oliveira', 'Pedro Santos', 'Ana Costa', 'Carlos Pereira'];
+            const phones = ['(11) 98765-4321', '(11) 97654-3210', '(11) 96543-2109', '(11) 95432-1098'];
+            const statuses = ['SCHEDULED', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'] as const;
+
+            weekDays.forEach(day => {
+                const numAppointments = Math.floor(Math.random() * 3) + 1;
+                for (let i = 0; i < numAppointments; i++) {
+                    const hour = Math.floor(Math.random() * (BUSINESS_HOURS.end - BUSINESS_HOURS.start)) + BUSINESS_HOURS.start;
+                    const duration = [30, 60, 90][Math.floor(Math.random() * 3)];
+                    const startTime = new Date(day);
+                    startTime.setHours(hour, 0, 0);
+                    const endTime = new Date(startTime);
+                    endTime.setMinutes(endTime.getMinutes() + duration);
+                    const serviceName = serviceNames[Math.floor(Math.random() * serviceNames.length)];
+                    const clientName = clientNames[Math.floor(Math.random() * clientNames.length)];
+                    const clientPhone = phones[Math.floor(Math.random() * phones.length)];
+                    const status = statuses[Math.floor(Math.random() * statuses.length)];
+                    mockAppointments.push({
+                        id: `${day.getTime()}-${i}`,
+                        clientName,
+                        clientPhone,
+                        serviceName,
+                        startTime,
+                        endTime,
+                        status,
+                    });
+                }
+            });
+            setAppointments(mockAppointments);
+            setTimeout(() => setIsLoading(false), 700);
+        } catch (error) {
+            console.error('Erro ao buscar agendamentos:', error);
+            setError('Erro ao carregar os agendamentos para esta semana');
+            setIsLoading(false);
+        }
+    }, [weekDays]);
 
     // Gerar os dias da semana a partir da data selecionada
-    const generateWeekDays = () => {
+    const generateWeekDays = useCallback(() => {
         const start = startOfWeek(selectedDate, { locale: ptBR });
         const end = endOfWeek(selectedDate, { locale: ptBR });
 
@@ -71,78 +100,23 @@ export default function CalendarWeekPage(props: any) {
 
         setWeekDays(days);
         fetchAppointments(start, end);
-    };
+    }, [selectedDate, fetchAppointments]);
 
-    // Buscar agendamentos para a semana
-    const fetchAppointments = async (start: Date, end: Date) => {
-        try {
-            setIsLoading(true);
-            setError(null);
-
-            // Formatar as datas para consulta
-            const startDate = format(start, 'yyyy-MM-dd');
-            const endDate = format(end, 'yyyy-MM-dd');
-
-            // Chamada para API (simulado)
-            /*
-            const response = await fetch(`/api/appointment?startDate=${startDate}&endDate=${endDate}`);
-            if (!response.ok) {
-              throw new Error('Erro ao buscar agendamentos');
-            }
-            const data = await response.json();
-            */
-
-            // Simulação de dados
-            const mockAppointments: Appointment[] = [];
-
-            // Gerar alguns agendamentos aleatórios para cada dia da semana
-            weekDays.forEach(day => {
-                const numAppointments = Math.floor(Math.random() * 3) + 1; // 1 a 3 agendamentos por dia
-
-                for (let i = 0; i < numAppointments; i++) {
-                    const hour = Math.floor(Math.random() * (BUSINESS_HOURS.end - BUSINESS_HOURS.start)) + BUSINESS_HOURS.start;
-                    const duration = [30, 60, 90][Math.floor(Math.random() * 3)]; // 30, 60 ou 90 minutos
-                    const startTime = new Date(day);
-                    startTime.setHours(hour, 0, 0);
-
-                    const endTime = new Date(startTime);
-                    endTime.setMinutes(endTime.getMinutes() + duration);
-
-                    const serviceNames = ['Corte de Cabelo', 'Manicure', 'Pedicure', 'Hidratação', 'Barba'];
-                    const serviceName = serviceNames[Math.floor(Math.random() * serviceNames.length)];
-
-                    const clientNames = ['João Silva', 'Maria Oliveira', 'Pedro Santos', 'Ana Costa', 'Carlos Pereira'];
-                    const clientName = clientNames[Math.floor(Math.random() * clientNames.length)];
-
-                    const phones = ['(11) 98765-4321', '(11) 97654-3210', '(11) 96543-2109', '(11) 95432-1098'];
-                    const clientPhone = phones[Math.floor(Math.random() * phones.length)];
-
-                    const statuses = ['SCHEDULED', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'] as const;
-                    const status = statuses[Math.floor(Math.random() * statuses.length)];
-
-                    mockAppointments.push({
-                        id: `${day.getTime()}-${i}`,
-                        clientName,
-                        clientPhone,
-                        serviceName,
-                        startTime,
-                        endTime,
-                        status,
-                    });
+    // Corrigir sintaxe do useEffect
+    useEffect(() => {
+        if (params?.date) {
+            try {
+                const date = new Date(params.date);
+                if (!Number.isNaN(date.getTime())) {
+                    setSelectedDate(date);
                 }
-            });
-
-            setAppointments(mockAppointments);
-            setTimeout(() => {
-                setIsLoading(false);
-            }, 700); // Simulação de carregamento
-
-        } catch (error) {
-            console.error('Erro ao buscar agendamentos:', error);
-            setError('Erro ao carregar os agendamentos para esta semana');
-            setIsLoading(false);
+            } catch (e) {
+                console.error("Data inválida na URL");
+            }
         }
-    };
+        generateWeekDays();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [params, generateWeekDays]);
 
     // Navegar para a semana anterior
     const handlePreviousWeek = () => {
@@ -203,7 +177,7 @@ export default function CalendarWeekPage(props: any) {
     };
 
     // Criar novo agendamento
-    const handleCreateAppointment = async (appointmentData: any) => {
+    const handleCreateAppointment = async (appointmentData: Omit<Appointment, 'id'>) => {
         try {
             // Chamada para a API
             const response = await fetch('/api/appointment', {
@@ -277,18 +251,21 @@ export default function CalendarWeekPage(props: any) {
                     {/* Navegação */}
                     <div className="d-flex align-items-center gap-2">
                         <button
+                            type="button"
                             className="btn btn-sm btn-outline-secondary"
                             onClick={handlePreviousWeek}
                         >
                             <ChevronLeft size={16} />
                         </button>
                         <button
+                            type="button"
                             className="btn btn-sm btn-outline-primary"
                             onClick={handleCurrentWeek}
                         >
                             Esta Semana
                         </button>
                         <button
+                            type="button"
                             className="btn btn-sm btn-outline-secondary"
                             onClick={handleNextWeek}
                         >
@@ -322,9 +299,9 @@ export default function CalendarWeekPage(props: any) {
                                     <thead>
                                         <tr>
                                             <th className="time-column"></th>
-                                            {weekDays.map((day, index) => (
+                                            {weekDays.map((day) => (
                                                 <th
-                                                    key={index}
+                                                    key={day.toISOString()}
                                                     className={`text-center ${isToday(day) ? 'bg-light today-column' : ''}`}
                                                 >
                                                     <div className="fw-bold">{format(day, 'EEEE', { locale: ptBR })}</div>
@@ -342,23 +319,23 @@ export default function CalendarWeekPage(props: any) {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {timeSlots.map((hour, rowIndex) => (
-                                            <tr key={rowIndex}>
+                                        {timeSlots.map((hour) => (
+                                            <tr key={hour}>
                                                 <td className="time-cell align-middle text-center">
                                                     {hour}:00
                                                 </td>
-                                                {weekDays.map((day, colIndex) => {
+                                                {weekDays.map((day) => {
                                                     const dayAppointments = getAppointmentsForTimeSlot(day, hour);
                                                     return (
                                                         <td
-                                                            key={`${rowIndex}-${colIndex}`}
+                                                            key={day.toISOString() + '-' + hour}
                                                             className={`schedule-cell position-relative ${isToday(day) ? 'today-column' : ''}`}
                                                             onClick={() => handleSelectSlot(day, hour)}
                                                         >
                                                             {dayAppointments.length > 0 ? (
-                                                                dayAppointments.map((appointment, idx) => (
+                                                                dayAppointments.map((appointment) => (
                                                                     <div
-                                                                        key={idx}
+                                                                        key={appointment.id}
                                                                         className={`appointment-pill ${getStatusClass(appointment.status)} text-white p-1 rounded mb-1`}
                                                                         title={`${appointment.clientName} - ${appointment.serviceName}`}
                                                                     >

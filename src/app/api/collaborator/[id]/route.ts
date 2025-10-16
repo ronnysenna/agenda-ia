@@ -18,7 +18,7 @@ export async function PUT(
       { status: 400 }
     );
 
-  const updated = await prisma.Collaborator.update({
+  const updated = await prisma.collaborator.update({
     where: { id: params.id, userId: session.user.id },
     data: { name, role, phone, imageUrl },
   });
@@ -33,7 +33,7 @@ export async function DELETE(
   if (!session?.user?.id)
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  await prisma.Collaborator.delete({
+  await prisma.collaborator.delete({
     where: { id: params.id, userId: session.user.id },
   });
   return NextResponse.json({ ok: true });

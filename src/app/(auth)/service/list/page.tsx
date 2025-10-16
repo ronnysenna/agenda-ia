@@ -35,6 +35,7 @@ export default function ServiceListPage() {
     // Carregar serviços ao montar o componente
     useEffect(() => {
         handleSearch();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleSearch = async () => {
